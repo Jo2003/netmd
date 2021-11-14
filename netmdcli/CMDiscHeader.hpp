@@ -1,5 +1,5 @@
+#ifdef __cplusplus
 #pragma once
-
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -50,7 +50,7 @@ public:
 	//!
 	//! @return     String representation of the object.
 	//-----------------------------------------------------------------------------
-	std::string toString() const;
+	std::string toString();
 
 	//-----------------------------------------------------------------------------
 	//! @brief      Adds a group.
@@ -106,6 +106,16 @@ public:
 	//-----------------------------------------------------------------------------
 	int setDiscTitle(const std::string& title);
 
+	//-----------------------------------------------------------------------------
+	//! @brief      rename one group
+	//!
+	//! @param[in]  gid    The group id
+	//! @param[in]  title  The new title
+	//!
+	//! @return     0 -> ok; else -> error
+	//-----------------------------------------------------------------------------
+	int renameGroup(int gid, const std::string& title);
+
 protected:
 	//-----------------------------------------------------------------------------
 	//! @brief      check groups / tracks for sanity
@@ -117,6 +127,114 @@ protected:
 	int sanityCheck(const Groups_t& grps) const;
 
 private:
-	Groups_t mGroups;
-	int      mGroupId;
+	Groups_t           mGroups;
+	int                mGroupId;
+	std::ostringstream mOss;
 };
+
+extern "C" {
+#endif // __cplusplus 
+
+//! define a MD Header handle
+typedef void* HndMdHdr;
+
+//------------------------------------------------------------------------------
+//! @brief      Creates a md header.
+//!
+//! @param[in]  content  The content
+//!
+//! @return     The handle md header.
+//------------------------------------------------------------------------------
+HndMdHdr create_md_header(const char* content);
+
+//------------------------------------------------------------------------------
+//! @brief         free the MD header
+//!
+//! @param[in/out] hdl   handle to MD header
+//------------------------------------------------------------------------------
+void free_md_header(HndMdHdr* hdl);
+
+//------------------------------------------------------------------------------
+//! @brief      create C string from MD header
+//!
+//! @param[in]  hdl   The MD header handle
+//!
+//! @return     C string or NULL
+//------------------------------------------------------------------------------
+const char* md_header_to_string(HndMdHdr hdl);
+
+//------------------------------------------------------------------------------
+//! @brief      add a group to the MD header
+//!
+//! @param[in]  hdl    The MD header handlehdl
+//! @param[in]  name   The name
+//! @param[in]  first  The first
+//! @param[in]  last   The last
+//!
+//! @return     > -1 -> group id; else -> error
+//------------------------------------------------------------------------------
+int md_header_add_group(HndMdHdr hdl, const char* name, int16_t first, int16_t last);
+
+//------------------------------------------------------------------------------
+//! @brief      list groups in MD header
+//!
+//! @param[in]  hdl   The MD header handle
+//------------------------------------------------------------------------------
+void md_header_list_groups(HndMdHdr hdl);
+
+//------------------------------------------------------------------------------
+//! @brief      Adds a track to group.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int md_header_add_track_to_group(HndMdHdr hdl, int gid, int16_t track);
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a track from a group.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track);
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a group (included tracks become ungrouped)
+//!
+//! @param[in]  hdl   The MD header handle
+//! @param[in]  gid   The group id
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_group(HndMdHdr hdl, int gid);
+
+//-----------------------------------------------------------------------------
+//! @brief      Sets the disc title.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  title  The title
+//!
+//! @return     0 -> ok; else -> error
+//-----------------------------------------------------------------------------
+int md_header_set_disc_title(HndMdHdr hdl, const char* title);
+
+//-----------------------------------------------------------------------------
+//! @brief      rename one group
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  title  The new title
+//!
+//! @return     0 -> ok; else -> error
+//-----------------------------------------------------------------------------
+int md_header_rename_group(HndMdHdr hdl, int gid, const char* title);
+
+#ifdef __cplusplus
+}
+#endif //  __cplusplus

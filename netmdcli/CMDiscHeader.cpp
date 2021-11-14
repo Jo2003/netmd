@@ -141,9 +141,11 @@ int CMDiscHeader::sanityCheck(const Groups_t& grps) const
 //!
 //! @return     String representation of the object.
 //-----------------------------------------------------------------------------
-std::string CMDiscHeader::toString() const
+std::string CMDiscHeader::toString()
 {
-	std::ostringstream oss;
+	mOss.clear();
+	mOss.str("");
+
 	Groups_t tmpGrps = mGroups;
 
 	Group_t& title = tmpGrps.at(0);
@@ -152,12 +154,12 @@ std::string CMDiscHeader::toString() const
 	{
 		if (tmpGrps.size() == 1)
 		{
-			oss << title.mName;
-			return oss.str();
+			mOss << title.mName;
+			return mOss.str();
 		}
 		else
 		{
-			oss << "0;" << title.mName << "//";
+			mOss << "0;" << title.mName << "//";
 			tmpGrps.erase(tmpGrps.begin());
 		}
 	}
@@ -173,18 +175,18 @@ std::string CMDiscHeader::toString() const
 	{
 		if (g.mFirst != -1)
 		{
-			oss << g.mFirst;
+			mOss << g.mFirst;
 		}
 
 		if (g.mLast != -1)
 		{
-			oss << "-" << g.mLast;
+			mOss << "-" << g.mLast;
 		}
 
-		oss << ";" << g.mName << "//";
+		mOss << ";" << g.mName << "//";
 	}
 
-	return oss.str();
+	return mOss.str();
 }
 
 //-----------------------------------------------------------------------------
@@ -389,4 +391,197 @@ int CMDiscHeader::setDiscTitle(const std::string& title)
 {
 	mGroups.at(0).mName = title;
 	return 0;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      rename one group
+//!
+//! @param[in]  gid    The group id
+//! @param[in]  title  The new title
+//!
+//! @return     0 -> ok; else -> error
+//-----------------------------------------------------------------------------
+int CMDiscHeader::renameGroup(int gid, const std::string& title)
+{
+	for (auto& g : mGroups)
+	{
+		if (g.mGid == gid)
+		{
+			g.mName = title;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      Creates a md header.
+//!
+//! @param[in]  content  The content
+//!
+//! @return     The handle md header.
+//------------------------------------------------------------------------------
+HndMdHdr create_md_header(const char* content)
+{
+	return static_cast<HndMdHdr>(new CMDiscHeader(content));
+}
+
+//------------------------------------------------------------------------------
+//! @brief         free the MD header
+//!
+//! @param[in/out] hdl   handle to MD header
+//------------------------------------------------------------------------------
+void free_md_header(HndMdHdr* hdl)
+{
+	if (*hdl != nullptr)
+	{
+		delete static_cast<CMDiscHeader*>(*hdl);
+		*hdl = nullptr;
+	}
+}
+
+//------------------------------------------------------------------------------
+//! @brief      create C string from MD header
+//!
+//! @param[in]  hdl   The MD header handle
+//!
+//! @return     c String or NULL
+//------------------------------------------------------------------------------
+const char* md_header_to_string(HndMdHdr hdl)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->toString().c_str();
+	}
+	return nullptr;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      add a group to the MD header
+//!
+//! @param[in]  hdl    The MD header handlehdl
+//! @param[in]  name   The name
+//! @param[in]  first  The first
+//! @param[in]  last   The last
+//!
+//! @return     >-1 -> group id; else -> error
+//------------------------------------------------------------------------------
+int md_header_add_group(HndMdHdr hdl, const char* name, int16_t first, int16_t last)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->addGroup(name, first, last);
+	}
+	return -1;
+}
+
+
+//------------------------------------------------------------------------------
+//! @brief      list groups in MD header
+//!
+//! @param[in]  hdl   The MD header handle
+//------------------------------------------------------------------------------
+void md_header_list_groups(HndMdHdr hdl)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		pMDH->listGroups();
+	}
+}
+
+//------------------------------------------------------------------------------
+//! @brief      Adds a track to group.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int md_header_add_track_to_group(HndMdHdr hdl, int gid, int16_t track)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->addTrackToGroup(gid, track);
+	}
+	return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a track from a group.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->delTrackFromGroup(gid, track);
+	}
+	return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a group (included tracks become ungrouped)
+//!
+//! @param[in]  hdl   The MD header handle
+//! @param[in]  gid   The group id
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_group(HndMdHdr hdl, int gid)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->delGroup(gid);
+	}
+	return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      Sets the disc title.
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  title  The title
+//!
+//! @return     0 -> ok; else -> error
+//-----------------------------------------------------------------------------
+int md_header_set_disc_title(HndMdHdr hdl, const char* title)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->setDiscTitle(title);
+	}
+	return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      rename one group
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  gid    The group id
+//! @param[in]  title  The new title
+//!
+//! @return     0 -> ok; else -> error
+//-----------------------------------------------------------------------------
+int md_header_rename_group(HndMdHdr hdl, int gid, const char* title)
+{
+	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+	if (pMDH != nullptr)
+	{
+		return pMDH->renameGroup(gid, title);
+	}
+	return -1;
 }
