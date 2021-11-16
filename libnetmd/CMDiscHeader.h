@@ -1,9 +1,26 @@
+/**
+ * Copyright (C) 2021 Jo2003 (olenka.joerg@gmail.com)
+ * This file is part of netmd
+ *
+ * cd2netmd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * cd2netmd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ */
 #ifdef __cplusplus
 #pragma once
 #include <iostream>
 #include <iomanip>
 #include <vector>
 #include <string>
+
 
 //------------------------------------------------------------------------------
 //! @brief      This class describes a minidisc header
@@ -35,6 +52,11 @@ public:
 	//! @param[in]  header  The RAW disc header as string
 	//-----------------------------------------------------------------------------
 	CMDiscHeader(const std::string& header);
+
+	//-----------------------------------------------------------------------------
+	//! @brief      Destroys the object.
+	//-----------------------------------------------------------------------------
+	~CMDiscHeader();
 
 	//-----------------------------------------------------------------------------
 	//! @brief      create header from string
@@ -107,6 +129,13 @@ public:
 	int setDiscTitle(const std::string& title);
 
 	//-----------------------------------------------------------------------------
+	//! @brief      gets the disc title.
+	//!
+	//! @return     disc title
+	//-----------------------------------------------------------------------------
+	std::string discTitle();
+
+	//-----------------------------------------------------------------------------
 	//! @brief      rename one group
 	//!
 	//! @param[in]  gid    The group id
@@ -115,6 +144,49 @@ public:
 	//! @return     0 -> ok; else -> error
 	//-----------------------------------------------------------------------------
 	int renameGroup(int gid, const std::string& title);
+
+	//-----------------------------------------------------------------------------
+	//! @brief      get the group title for track
+	//!
+	//! @param[in]  track  The track
+	//! @param      pGid   The gid
+	//!
+	//! @return     group title or empty string
+	//-----------------------------------------------------------------------------
+	std::string trackGroup(int16_t track, int16_t* pGid);
+
+	//-----------------------------------------------------------------------------
+	//! @brief      return the C string header
+	//!
+	//! @return     C string with MD header data
+	//-----------------------------------------------------------------------------
+	const char* stringHeader();
+
+	//-----------------------------------------------------------------------------
+	//! @brief      returns last buildt C string
+	//!
+	//! @return     C string
+	//-----------------------------------------------------------------------------
+	const char* lastString();
+
+	//-----------------------------------------------------------------------------
+	//! @brief      compare function used to sort groups in header
+	//!
+	//! @param[in]  a     group a
+	//! @param[in]  b     group b
+	//!
+	//! @return     true if a less b
+	//-----------------------------------------------------------------------------
+	static bool groupCompare(const Group_t& a, const Group_t& b);
+
+	//-----------------------------------------------------------------------------
+	//! @brief      ungroup a track
+	//!
+	//! @param[in]  track  The track
+	//!
+	//! @return     0 -> ok; -1 -> error
+	//-----------------------------------------------------------------------------
+	int unGroup(int16_t track);
 
 protected:
 	//-----------------------------------------------------------------------------
@@ -127,13 +199,16 @@ protected:
 	int sanityCheck(const Groups_t& grps) const;
 
 private:
-	Groups_t           mGroups;
-	int                mGroupId;
-	std::ostringstream mOss;
+	Groups_t     mGroups;
+	int          mGroupId;
+	char*        mpCStringHeader;
+	char*        mpLastString;
 };
 
 extern "C" {
 #endif // __cplusplus 
+#include "log.h"
+#include <stdint.h>
 
 //! define a MD Header handle
 typedef void* HndMdHdr;
@@ -234,6 +309,36 @@ int md_header_set_disc_title(HndMdHdr hdl, const char* title);
 //! @return     0 -> ok; else -> error
 //-----------------------------------------------------------------------------
 int md_header_rename_group(HndMdHdr hdl, int gid, const char* title);
+
+//------------------------------------------------------------------------------
+//! @brief      get disc title
+//!
+//! @param[in]  hdl   The MD header handle
+//!
+//! @return     C string
+//------------------------------------------------------------------------------
+const char* md_header_disc_title(HndMdHdr hdl);
+
+//------------------------------------------------------------------------------
+//! @brief      get group name for track
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  track  The track number
+//! @param[out] pGid   The buffer for gid
+//!
+//! @return     C string or nullptr
+//------------------------------------------------------------------------------
+const char* md_header_track_group(HndMdHdr hdl, int16_t track, int16_t* pGid);
+
+//------------------------------------------------------------------------------
+//! @brief      unhroup track
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  track  The track
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int md_header_ungroup_track(HndMdHdr hdl, int16_t track);
 
 #ifdef __cplusplus
 }

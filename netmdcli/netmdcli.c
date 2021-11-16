@@ -22,6 +22,7 @@
 #include <gcrypt.h>
 #include <getopt.h>
 #include <json-c/json.h>
+#include <json-c/json_object.h>
 #include <unistd.h>
 
 #include "../libnetmd/libnetmd.h"
@@ -31,7 +32,7 @@
 
 static json_object *json;
 
-void print_disc_info(netmd_dev_handle* devh, minidisc *md);
+void print_disc_info(netmd_dev_handle* devh, HndMdHdr md);
 void print_current_track_info(netmd_dev_handle* devh);
 void print_syntax();
 int check_args(int argc, int min_argc, const char *text);
@@ -264,7 +265,7 @@ static int audio_supported(const unsigned char * file, netmd_wireformat * wirefo
 int main(int argc, char* argv[])
 {
     netmd_dev_handle* devh;
-    minidisc my_minidisc, *md = &my_minidisc;
+    HndMdHdr md = NULL;
     netmd_device *device_list, *netmd;
     long unsigned int i = 0;
     long unsigned int j = 0;
@@ -374,12 +375,21 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    netmd_initialize_disc_info(devh, md);
+    json = json_object_new_object();
+    char *buffer;
+    netmd_request_raw_header_ex(devh, &buffer);
+
+    if (buffer != NULL)
+    {
+        json_object_object_add(json, "raw-header", json_object_new_string(buffer));
+        free(buffer);
+    }
+    
+    netmd_initialize_disc_info(devh, &md);
 
     // Construct JSON object
-    json = json_object_new_object();
     json_object_object_add(json, "device",  json_object_new_string(netmd->model));
-    json_object_object_add(json, "title",   json_object_new_string(md->groups[0].name));
+    json_object_object_add(json, "title",   json_object_new_string(md_header_disc_title(md)));
     json_object_object_add(json, "OtfEnc",  json_object_new_int(netmd->otf_conv));
 
     /* parse commands */
@@ -400,13 +410,6 @@ int main(int argc, char* argv[])
             j = strtoul(argv[3], NULL, 10);
             netmd_move_track(devh, i & 0xffff, j & 0xffff);
         }
-        else if(strcmp("groupmove", argv[1]) == 0)
-        {
-            if (!check_args(argc, 3, "groupmove")) return -1;
-            i = strtoul(argv[2], NULL, 10);
-            j = strtoul(argv[3], NULL, 10);
-            netmd_move_group(devh, md, j & 0xffff, i & 0xffff);
-        }
         else if(strcmp("write", argv[1]) == 0)
         {
             // Probably non-functional for most use cases
@@ -419,7 +422,7 @@ int main(int argc, char* argv[])
         else if(strcmp("newgroup", argv[1]) == 0)
         {
             if (!check_args(argc, 2, "newgroup")) return -1;
-            netmd_create_group(devh, md, argv[2]);
+            netmd_create_group(devh, md, argv[2], -1, -1);
         }
         else if(strcmp("settitle", argv[1]) == 0)
         {
@@ -630,7 +633,7 @@ int main(int argc, char* argv[])
     else
         print_disc_info(devh, md);
 
-    netmd_clean_disc_info(md);
+    free_md_header(&md);
     netmd_close(devh);
     netmd_clean(&device_list);
 
@@ -655,11 +658,13 @@ void print_current_track_info(netmd_dev_handle* devh)
 
 }
 
-void print_disc_info(netmd_dev_handle* devh, minidisc* md)
+void print_disc_info(netmd_dev_handle* devh, HndMdHdr md)
 {
     uint8_t i = 0;
     int size = 1;
-    uint8_t g, group = 0, lastgroup = 0;
+    int16_t group = 0, lastgroup = 9858;
+    const char* group_name;
+    char* last_group_name = NULL;
     unsigned char bitrate_id;
     unsigned char flags;
     unsigned char channel;
@@ -676,6 +681,8 @@ void print_disc_info(netmd_dev_handle* devh, minidisc* md)
     json_object_object_add(json, "totalTime", json_time(&capacity.total));
     json_object_object_add(json, "availableTime", json_time(&capacity.available));
     json_object* tracks = json_object_new_array();
+    json_object* groups = json_object_new_array();
+    json_object* jgroup = NULL;
 
     for(i = 0; size >= 0; i++)
     {
@@ -686,28 +693,28 @@ void print_disc_info(netmd_dev_handle* devh, minidisc* md)
             break;
         }
 
-        /* Figure out which group this track is in */
-        for( group = 0, g = 1; g < md->group_count; g++ )
-        {
-            if( (md->groups[g].start <= i+1U) && (md->groups[g].finish >= i+1U ))
-            {
-                group = g;
-                break;
-            }
-        }
-        /* Different to the last group? */
-        if( group != lastgroup )
+        group_name = md_header_track_group(md, i + 1, &group);
+
+        if (group != lastgroup)
         {
             lastgroup = group;
-            if( group )			/* Group 0 is 'no group' */
+
+            if (jgroup != NULL)
             {
-                //printf("Group: %s\n", md->groups[group].name);
+                json_object* gobj = json_object_new_object();
+                json_object_object_add(gobj, "name"  , json_object_new_string(last_group_name));
+                json_object_object_add(gobj, "tracks", jgroup);
+                json_object_array_add(groups, gobj);
+                free(last_group_name);
+                jgroup = NULL;
+                last_group_name = NULL;
             }
-        }
-        /* Indent tracks which are in a group */
-        if( group )
-        {
-            //printf("  ");
+
+            if (group != -1)
+            {
+                last_group_name = strdup(group_name);
+                jgroup = json_object_new_array();
+            }
         }
 
         netmd_request_track_time(devh, i, &time);
@@ -740,30 +747,35 @@ void print_disc_info(netmd_dev_handle* devh, minidisc* md)
         json_object_object_add(track, "bitrate",    json_object_new_string(bitrate->name));
         json_object_object_add(track, "time",       json_object_new_string(time_buf));
         json_object_object_add(track, "name",       json_object_new_string(name));
-        json_object_array_add(tracks, track);
+
+        if (jgroup != NULL)
+        {
+            json_object_array_add(jgroup, track);
+        }
+        else
+        {
+            json_object_array_add(tracks, track);
+        }
+    }
+
+    if (jgroup != NULL)
+    {
+        json_object* gobj = json_object_new_object();
+        json_object_object_add(gobj, "name"  , json_object_new_string(last_group_name));
+        json_object_object_add(gobj, "tracks", jgroup);
+        json_object_array_add(groups, gobj);
+        free(last_group_name);
+        jgroup = NULL;
+        last_group_name = NULL;
     }
 
     json_object_object_add(json, "TCount",  json_object_new_int(i));
+    json_object_object_add(json, "Groups", groups);
     json_object_object_add(json, "tracks", tracks);
     printf(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
 
     // Clean up JSON object
     json_object_put(json);
-
-    exit(0);
-
-    /* XXX - This needs a rethink with the above method */
-    /* groups may not have tracks, print the rest. */
-    printf("\n--Empty Groups--\n");
-    for(group=1; group < md->group_count; group++)
-    {
-        if(md->groups[group].start == 0 && md->groups[group].finish == 0) {
-            printf("Group: %s\n", md->groups[group].name);
-        }
-
-    }
-
-    printf("\n\n");
 }
 
 void import_m3u_playlist(netmd_dev_handle* devh, const char *file)

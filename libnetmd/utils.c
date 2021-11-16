@@ -291,3 +291,27 @@ uint64_t netmd_read_quadword(netmd_response *response)
 
     return value;
 }
+
+//------------------------------------------------------------------------------
+//! @brief      htons short and dirty
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint16_t netmd_htons(uint16_t in)
+{
+    unsigned char buf[2];
+    uint16_t *pU16 = (uint16_t*)buf;
+
+    *pU16 = 0x8811;
+
+    if (buf[0] == 0x11)
+    {
+        // little endian -> swop bytes
+        return ((in & 0xff) << 8) | ((in >> 8) & 0xff);
+    }
+
+    return in;
+
+}
