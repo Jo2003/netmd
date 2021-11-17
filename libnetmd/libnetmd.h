@@ -247,3 +247,13 @@ int netmd_release_dev(netmd_dev_handle* dev);
 int netmd_request_raw_header(netmd_dev_handle* dev, char* buffer, size_t size);
 
 int netmd_request_raw_header_ex(netmd_dev_handle* dev, char** buffer);
+
+//------------------------------------------------------------------------------
+//! @brief      get track count from MD device
+//!
+//! @param[in]  dev     The dev handle
+//! @param[out] tcount  The tcount buffer
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount);

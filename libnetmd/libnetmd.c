@@ -24,7 +24,9 @@
 
 #include <unistd.h>
 
+#include "common.h"
 #include "libnetmd.h"
+#include "log.h"
 #include "utils.h"
 
 /*! list of known codecs (mapped to protocol ID) that can be used in NetMD devices */
@@ -130,13 +132,15 @@ static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
     int ret = -1;
     size_t title_size = 0;
     uint16_t total = 1, remaining = 0, read = 0, chunkSz = 0;
+    unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
 
-    unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x10, 0x01, 0x01, 0x00};
+
     unsigned char title_request[] = {0x00, 0x18, 0x06, 0x02, 0x20, 0x18,
                                      0x01, 0x00, 0x00, 0x30, 0x00, 0x0a,
                                      0x00, 0xff, 0x00, 0x00, 0x00, 0x00,
                                      0x00};
     unsigned char tmpBuf[255];
+    unsigned char *pResp = NULL;
 
     uint16_t* pRemains = (uint16_t*)&title_request[15];
     uint16_t* pDone    = (uint16_t*)&title_request[17];
@@ -155,12 +159,11 @@ static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
         netmd_log(NETMD_LOG_DEBUG, "Title request:\n");
         netmd_log_hex(NETMD_LOG_DEBUG, title_request, 19);
 
-        ret = netmd_exch_message(dev, title_request, 0x13, tmpBuf);
+        ret = netmd_exch_message_ex(dev, title_request, 0x13, &pResp);
 
         if(ret < 0)
         {
-            fprintf(stderr, "request_disc_title: bad ret code, returning early\n");
-
+            netmd_log(NETMD_LOG_ERROR, "request_disc_title: bad ret code, returning early\n");
             if (*buffer != NULL)
             {
                 free(*buffer);
@@ -169,20 +172,29 @@ static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
             return 0;
         }
 
+        if (pResp == NULL)
+        {
+            netmd_log(NETMD_LOG_ERROR, "No usable response from device!\n");
+            return 0;
+        }
+
         if (remaining == 0)
         {
             /* first answer */
-            total            = (((uint16_t)tmpBuf[23] << 8) | (uint16_t)tmpBuf[24]);
+            total            = netmd_ntohs(*(uint16_t*)&pResp[23]);
             *buffer          = (char*)malloc(total + 1); /* one more for terminating zero */
             (*buffer)[total] = '\0';
-            chunkSz          = tmpBuf[16] - 6;
-            memcpy((*buffer) + read, &tmpBuf[25], chunkSz);
+            chunkSz          = netmd_ntohs(*(uint16_t*)&pResp[15]) - 6;
+            memcpy((*buffer) + read, &pResp[25], chunkSz);
         }
         else
         {
-            chunkSz = tmpBuf[16];
-            memcpy((*buffer) + read, &tmpBuf[19], chunkSz);
+            chunkSz = netmd_ntohs(*(uint16_t*)&pResp[15]);
+            memcpy((*buffer) + read, &pResp[19], chunkSz);
         }
+
+        free(pResp);
+        pResp = NULL;
 
         read += chunkSz;
         remaining = total - read;
@@ -793,4 +805,36 @@ int netmd_request_raw_header(netmd_dev_handle* dev, char* buffer, size_t size)
 int netmd_request_raw_header_ex(netmd_dev_handle* dev, char** buffer)
 {
     return request_disc_title_ex(dev, buffer);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      get track count from MD device
+//!
+//! @param[in]  dev     The dev handle
+//! @param[out] tcount  The tcount buffer
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount)
+{
+    unsigned char req[] = {0x00, 0x18, 0x06, 0x02, 0x10, 0x10, 
+                           0x01, 0x30, 0x00, 0x10, 0x00, 0xff, 
+                           0x00, 0x00, 0x00, 0x00, 0x00};
+    
+    unsigned char reply[255];
+
+    int ret = netmd_exch_message(dev, req, 17, reply);
+
+    if (ret > 0)
+    {
+        // last byte contains the track count
+        *tcount = reply[ret - 1];
+        ret = 0;
+    }
+    else
+    {
+        ret = -1;
+    }
+
+    return ret;
 }
