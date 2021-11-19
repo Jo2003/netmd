@@ -52,4 +52,22 @@ uint16_t netmd_read_word(netmd_response *response);
 uint32_t netmd_read_doubleword(netmd_response *response);
 uint64_t netmd_read_quadword(netmd_response *response);
 
+//------------------------------------------------------------------------------
+//! @brief      htons short and dirty
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint16_t netmd_htons(uint16_t in);
+
+//------------------------------------------------------------------------------
+//! @brief      ntohs short and dirty
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint16_t netmd_ntohs(uint16_t in);
+
 #endif

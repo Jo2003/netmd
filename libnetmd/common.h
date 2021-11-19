@@ -21,6 +21,19 @@ typedef libusb_device_handle *netmd_dev_handle;
 int netmd_exch_message(netmd_dev_handle *dev, unsigned char *cmd,
                        const size_t cmdlen, unsigned char *rsp);
 
+//------------------------------------------------------------------------------
+//! @brief      exchange command / response (extended version)
+//!
+//! @param      devh    The devh
+//! @param      cmd     The command
+//! @param[in]  cmdlen  The cmdlen
+//! @param      rspPtr  The rsp pointer (must be freed afterwards if not NULL)
+//!
+//! @return     < 0 -> error; else -> received bytes
+//------------------------------------------------------------------------------
+int netmd_exch_message_ex(netmd_dev_handle *devh, unsigned char *cmd,
+                          const size_t cmdlen, unsigned char **rspPtr);
+
 /**
   Function to send a command to the minidisc player.
 
@@ -39,6 +52,16 @@ int netmd_send_message(netmd_dev_handle *dev, unsigned char *cmd,
   @return number of bytes received if >0, or error if <0
 */
 int netmd_recv_message(netmd_dev_handle *dev, unsigned char *rsp);
+
+//------------------------------------------------------------------------------
+//! @brief      receive a message (extended version)
+//!
+//! @param      devh    The devh
+//! @param      rspPtr  The rsp pointer (must be freed afterwards)
+//!
+//! @return     length of data stored in *rspPtr
+//------------------------------------------------------------------------------
+int netmd_recv_message_ex(netmd_dev_handle *devh, unsigned char** rspPtr);
 
 /**
    Wait for the device to respond to commands. Should only be used

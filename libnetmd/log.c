@@ -84,6 +84,7 @@ void netmd_log_hex(netmd_loglevel level, const unsigned char* const buf, const s
             printf("%c", buf[j]);
     }
     printf("\n");
+    fflush(stdout);
 }
 
 

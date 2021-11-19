@@ -22,9 +22,12 @@
  *
  */
 
+#include <stdio.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "libnetmd.h"
+#include "log.h"
 #include "utils.h"
 
 /*! list of known codecs (mapped to protocol ID) that can be used in NetMD devices */
@@ -91,7 +94,7 @@ static int request_disc_title(netmd_dev_handle* dev, char* buffer, size_t size)
     int ret = -1;
     size_t title_size = 0;
     unsigned char title_request[] = {0x00, 0x18, 0x06, 0x02, 0x20, 0x18,
-                                     0x01, 0x00, 0x00, 0x30, 0x00, 0xa,
+                                     0x01, 0x00, 0x00, 0x30, 0x00, 0x0a,
                                      0x00, 0xff, 0x00, 0x00, 0x00, 0x00,
                                      0x00};
     unsigned char title[255];
@@ -117,9 +120,88 @@ static int request_disc_title(netmd_dev_handle* dev, char* buffer, size_t size)
         memset(buffer, 0, size);
         memcpy(buffer, (title + 25), title_size - 25);
         buffer[title_size - 25] = 0;
+
+        netmd_log(NETMD_LOG_DEBUG, "Title control response:\n");
+        netmd_log_hex(NETMD_LOG_DEBUG, title, 25);
     }
 
     return (int)title_size - 25;
+}
+
+static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
+{
+    int ret = -1;
+    size_t title_size = 0;
+    uint16_t total = 1, remaining = 0, read = 0, chunkSz = 0;
+    unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
+
+
+    unsigned char title_request[] = {0x00, 0x18, 0x06, 0x02, 0x20, 0x18,
+                                     0x01, 0x00, 0x00, 0x30, 0x00, 0x0a,
+                                     0x00, 0xff, 0x00, 0x00, 0x00, 0x00,
+                                     0x00};
+    unsigned char tmpBuf[255];
+    unsigned char *pResp = NULL;
+
+    uint16_t* pRemains = (uint16_t*)&title_request[15];
+    uint16_t* pDone    = (uint16_t*)&title_request[17];
+
+    *buffer = NULL;
+
+    /* handshake 1 */
+    netmd_exch_message(dev, hs1, 8, tmpBuf);
+
+    while (read < total)
+    {
+        /* prepare request */
+        *pRemains = netmd_htons(remaining);
+        *pDone    = netmd_htons(read);
+
+        netmd_log(NETMD_LOG_DEBUG, "Title request:\n");
+        netmd_log_hex(NETMD_LOG_DEBUG, title_request, 19);
+
+        ret = netmd_exch_message_ex(dev, title_request, 0x13, &pResp);
+
+        if(ret < 0)
+        {
+            netmd_log(NETMD_LOG_ERROR, "request_disc_title: bad ret code, returning early\n");
+            if (*buffer != NULL)
+            {
+                free(*buffer);
+                *buffer = NULL;
+            }
+            return 0;
+        }
+
+        if (pResp == NULL)
+        {
+            netmd_log(NETMD_LOG_ERROR, "No usable response from device!\n");
+            return 0;
+        }
+
+        if (remaining == 0)
+        {
+            /* first answer */
+            total            = netmd_ntohs(*(uint16_t*)&pResp[23]);
+            *buffer          = (char*)malloc(total + 1); /* one more for terminating zero */
+            (*buffer)[total] = '\0';
+            chunkSz          = netmd_ntohs(*(uint16_t*)&pResp[15]) - 6;
+            memcpy((*buffer) + read, &pResp[25], chunkSz);
+        }
+        else
+        {
+            chunkSz = netmd_ntohs(*(uint16_t*)&pResp[15]);
+            memcpy((*buffer) + read, &pResp[19], chunkSz);
+        }
+
+        free(pResp);
+        pResp = NULL;
+
+        read += chunkSz;
+        remaining = total - read;
+    }
+
+    return read;
 }
 
 int netmd_request_track_time(netmd_dev_handle* dev, const uint16_t track, struct netmd_track* buffer)
@@ -173,6 +255,7 @@ int netmd_set_title(netmd_dev_handle* dev, const uint16_t track, const char* con
     if(oldsize == -1)
         oldsize = 0; /* Reading failed -> no title at all, replace 0 bytes */
 
+    
     size = strlen(buffer);
     title_request = malloc(sizeof(char) * (0x15 + size));
     memcpy(title_request, title_header, 0x15);
@@ -229,73 +312,15 @@ int netmd_move_track(netmd_dev_handle* dev, const uint16_t start, const uint16_t
     return 1;
 }
 
-static unsigned int get_group_count(netmd_dev_handle* devh)
+int netmd_set_group_title(netmd_dev_handle* dev, HndMdHdr md, unsigned int group, char* title)
 {
-    char title[256];
-    int title_length;
-    char *group;
-    char *delim;
-    unsigned int group_count = 1;
-
-    title_length = request_disc_title(devh, title, 256);
-
-    group = title;
-    delim = strstr(group, "//");
-
-    while (delim < (title + title_length))
+    if (md_header_rename_group(md, group, title) == 0)
     {
-        if (delim != NULL)
-        {
-            /* if delimiter was found */
-            delim[0] = '\0';
-        }
-
-        if (strlen(group) > 0) {
-            if (atoi(group) > 0 || group[0] == ';') {
-                group_count++;
-            }
-        }
-
-        if (NULL == delim)
-        {
-            /* finish if delimiter was not found the last time */
-            break;
-        }
-
-        if (delim+2 > title+title_length)
-        {
-            /* finish if delimiter was at end of title */
-            break;
-        }
-
-        group = delim + 2;
-        delim = strstr(group, "//");
+        netmd_write_disc_header(dev, md);
+        return 1;
     }
 
-    return group_count;
-}
-
-int netmd_set_group_title(netmd_dev_handle* dev, minidisc* md, unsigned int group, char* title)
-{
-    size_t size = strlen(title);
-
-    md->groups[group].name = realloc(md->groups[group].name, size + 1);
-
-    if(md->groups[group].name != 0)
-        strcpy(md->groups[group].name, title);
-    else
-        return 0;
-
-    netmd_write_disc_header(dev, md);
-
-    return 1;
-}
-
-static void set_group_data(minidisc* md, const int group, const char* const name, const uint16_t start, const uint16_t finish) {
-    md->groups[group].name = strdup(name);
-    md->groups[group].start = start;
-    md->groups[group].finish = finish;
-    return;
+    return 0;
 }
 
 /* Sonys code is utter bile. So far we've encountered the following first segments in the disc title:
@@ -308,162 +333,42 @@ static void set_group_data(minidisc* md, const int group, const char* const name
  * ;group// - untitled disc, group with no tracks
  *
  */
-
-int netmd_initialize_disc_info(netmd_dev_handle* devh, minidisc* md)
+int netmd_initialize_disc_info(netmd_dev_handle* devh, HndMdHdr* md)
 {
-    int disc_size = 0;
-    char disc[256];
-
-    md->group_count = get_group_count(devh);
-
-    /* You always have at least one group, the disc title */
-    if(md->group_count == 0)
-        md->group_count++;
-
-    md->groups = malloc(sizeof(struct netmd_group) * md->group_count);
-    memset(md->groups, 0, sizeof(struct netmd_group) * md->group_count);
-
-    disc_size = request_disc_title(devh, disc, 256);
-
-    if(disc_size > 0)
+    if (*md != NULL)
     {
-        md->header_length = (size_t)disc_size;
-        netmd_parse_disc_title(md, disc, md->header_length);
+        free_md_header(md);
+        *md = NULL;
     }
 
-    if (NULL == md->groups[0].name)
-    {
-        /* set untitled disc title */
-        set_group_data(md, 0, "<Untitled>", 0, 0);
-    }
+    char *discHeader = NULL;
 
-    return disc_size;
+    request_disc_title_ex(devh, &discHeader);
+
+    if (discHeader != NULL)
+    {
+        *md = create_md_header(discHeader);
+        free(discHeader);
+    }
+    return strlen(md_header_to_string(*md));
 }
 
-void netmd_parse_disc_title(minidisc* md, char* title, size_t title_length)
+void print_groups(HndMdHdr md)
 {
-    char *group;
-    char *delim;
-    int group_count = 1;
-
-    group = title;
-    delim = strstr(group, "//");
-
-    while (delim < (title + title_length))
-    {
-        if (delim != NULL)
-        {
-            /* if delimiter was found */
-            delim[0] = '\0';
-        }
-
-        netmd_parse_group(md, group, &group_count);
-
-        if (NULL == delim)
-        {
-            /* finish if delimiter was not found the last time */
-            break;
-        }
-
-        group = delim + 2;
-
-        if (group > (title + title_length))
-        {
-            /* end of title */
-            break;
-        }
-
-        delim = strstr(group, "//");
-    }
+    md_header_list_groups(md);
 }
 
-void netmd_parse_group(minidisc* md, char* group, int* group_count)
+int netmd_create_group(netmd_dev_handle* dev, HndMdHdr md, char* name, int first, int last)
 {
-    char *group_name;
-
-    group_name = strchr(group, ';');
-    if (NULL == group_name)
+    if (md_header_add_group(md, name, first, last) > -1)
     {
-        if (strlen(group) > 0)
-        {
-            /* disc title */
-            set_group_data(md, 0, group, 0, 0);
-        }
+        netmd_log(NETMD_LOG_VERBOSE, "New group %s (%d ... %d) added!\n", name, first, last);
+        netmd_write_disc_header(dev, md);
     }
     else
     {
-        group_name[0] = '\0';
-        group_name++;
-
-        if (strlen(group_name) > 0)
-        {
-            if (0 == strlen(group))
-            {
-                set_group_data(md, *group_count, group_name, 0, 0);
-                (*group_count)++;
-            }
-            else
-            {
-                netmd_parse_trackinformation(md, group_name, group_count, group);
-            }
-        }
+        netmd_log(NETMD_LOG_ERROR, "Error: Can't add new group %s (%d ... %d)!\n", name, first, last);
     }
-}
-
-void netmd_parse_trackinformation(minidisc* md, char* group_name, int* group_count, char* tracks)
-{
-    char *track_last;
-    uint16_t start, finish;
-
-    start = strtoul(tracks, (char **) NULL, 10) & 0xffffU;
-    if (start == 0)
-    {
-        /* disc title */
-        set_group_data(md, 0, group_name, 0, 0);
-    }
-    else {
-        track_last = strchr(tracks, '-');
-
-        if (NULL == track_last)
-        {
-            finish = start;
-        }
-        else
-        {
-            track_last[0] = '\0';
-            track_last++;
-
-            finish = strtoul(track_last, (char **) NULL, 10) & 0xffffU;
-        }
-
-        set_group_data(md, *group_count, group_name, start, finish);
-        (*group_count)++;
-    }
-}
-
-void print_groups(minidisc *md)
-{
-    unsigned int i;
-    for(i = 0; i < md->group_count; i++)
-    {
-        printf("Group %i: %s - %i - %i\n", i, md->groups[i].name, md->groups[i].start, md->groups[i].finish);
-    }
-    printf("\n");
-}
-
-int netmd_create_group(netmd_dev_handle* dev, minidisc* md, char* name)
-{
-    unsigned int new_index;
-
-    new_index = md->group_count;
-    md->group_count++;
-    md->groups = realloc(md->groups, sizeof(struct netmd_group) * (md->group_count + 1));
-
-    md->groups[new_index].name = strdup(name);
-    md->groups[new_index].start = 0;
-    md->groups[new_index].finish = 0;
-
-    netmd_write_disc_header(dev, md);
     return 0;
 }
 
@@ -507,375 +412,69 @@ int netmd_set_disc_title(netmd_dev_handle* dev, char* title, size_t title_length
 }
 
 /* move track, then manipulate title string */
-int netmd_put_track_in_group(netmd_dev_handle* dev, minidisc *md, const uint16_t track, const unsigned int group)
+int netmd_put_track_in_group(netmd_dev_handle* dev, HndMdHdr md, const uint16_t track, const unsigned int group)
 {
-    unsigned int i = 0;
-    unsigned int j = 0;
-    int found = 0;
+    /* this might fail if track is ungrouped */
+    md_header_del_track_from_group(md, group, track);
 
-    printf("netmd_put_track_in_group(dev, %i, %i)\nGroup Count %i\n", track, group, md->group_count);
-
-    if (group >= md->group_count)
+    if (md_header_add_track_to_group(md, group, track) == 0)
     {
-        return 0;
+        return netmd_write_disc_header(dev, md);
     }
-
-    print_groups(md);
-
-    /* remove track from old group */
-    for(i = 0; i < md->group_count; i++)
-    {
-        if(i == 0)
-        {
-            /* if track is before first real group */
-            if(md->groups[i+1].start == 0)
-            {
-                /* nothing in group  */
-                found = 1;
-            }
-            if(((track + 1U) & 0xffffU) < md->groups[i+1].start)
-            {
-                found = 1;
-                for(j = i+1; j < md->group_count; j++)
-                {
-                    md->groups[j].start--;
-                    if(md->groups[j].finish != 0)
-                        md->groups[j].finish--;
-                }
-            }
-        }
-        else if(md->groups[i].start < track && md->groups[i].finish > track)
-        {
-            found = 1;
-            /* decrement start/finish for all following groups */
-            for(j = i+1; j < md->group_count; j++)
-            {
-                md->groups[j].start--;
-                if(md->groups[j].finish != 0)
-                    md->groups[j].finish--;
-            }
-        }
-    }
-
-    /* if track is in between groups */
-    if(!found)
-    {
-        for(i = 2; i < md->group_count; i++)
-        {
-            if(md->groups[i].start > track && md->groups[i-1].finish < track)
-            {
-                found = 1;
-                /* decrement start/finish for all groups including and after this one */
-                for(j = i; j < md->group_count; j++)
-                {
-                    md->groups[j].start--;
-                    if(md->groups[j].finish != 0)
-                        md->groups[j].finish--;
-                }
-            }
-        }
-    }
-
-    print_groups(md);
-
-    /* insert track into group range */
-    if(md->groups[group].finish != 0)
-    {
-        md->groups[group].finish++;
-    }
-    else
-    {
-        if(md->groups[group].start == 0)
-            md->groups[group].start = (track + 1U) & 0xffffU;
-        else
-            md->groups[group].finish = (md->groups[group].start + 1U) & 0xffffU;
-    }
-
-    /* if not last group */
-    if((group + 1) < md->group_count)
-    {
-        unsigned int j = 0;
-        for(j = group + 1; j < md->group_count; j++)
-        {
-            /* if group is NOT empty */
-            if(md->groups[j].start != 0 || md->groups[j].finish != 0)
-            {
-                md->groups[j].start++;
-                if(md->groups[j].finish != 0)
-                {
-                    md->groups[j].finish++;
-                }
-            }
-        }
-    }
-
-    /* what does it look like now? */
-    print_groups(md);
-
-    if(md->groups[group].finish != 0)
-    {
-        netmd_move_track(dev, track, (md->groups[group].finish - 1U) & 0xffffU);
-    }
-    else
-    {
-        if(md->groups[group].start != 0)
-            netmd_move_track(dev, track, (md->groups[group].start - 1U) & 0xffffU);
-        else
-            netmd_move_track(dev, track, md->groups[group].start & 0xffffU);
-    }
-
-    return netmd_write_disc_header(dev, md);
+    return -1;
 }
 
-int netmd_move_group(netmd_dev_handle* dev, minidisc* md, const uint16_t track, const unsigned int group)
+int netmd_pull_track_from_group(netmd_dev_handle* dev, HndMdHdr md, const uint16_t track, const unsigned int group)
 {
-    uint16_t index = 0;
-    unsigned int i = 0;
-    uint16_t gs = 0;
-    struct netmd_group store1;
-    struct netmd_group *p, *p2;
-    uint16_t gt = md->groups[group].start;
-    uint16_t finish = (((unsigned int)md->groups[group].finish - md->groups[group].start) + track) & 0xffffU;
-
-    p = p2 = 0;
-
-    /* empty groups can't be in front */
-    if(gt == 0)
-        return -1;
-
-    /* loop, moving tracks to new positions */
-    for(index = track; index <= finish; index++, gt++)
+    /* this might fail if track is ungrouped */
+    if (md_header_del_track_from_group(md, group, track) == 0)
     {
-        printf("Moving track %i to %i\n", (gt - 1U) & 0xffffU, index & 0xffffU);
-        netmd_move_track(dev, (gt - 1U) & 0xffffU, index & 0xffffU);
+        return netmd_write_disc_header(dev, md);
     }
-    md->groups[group].start = (track + 1U) & 0xffffU;
-    md->groups[group].finish = index;
-
-    /* create a copy of groups */
-    p = malloc(sizeof(struct netmd_group) * md->group_count);
-    for(index = 0; index < md->group_count; index++)
-    {
-        p[index].name = malloc(strlen(md->groups[index].name) + 1);
-        strcpy(p[index].name, md->groups[index].name);
-        p[index].start = md->groups[index].start;
-        p[index].finish = md->groups[index].finish;
-    }
-
-    store1 = p[group];
-    gs = ((unsigned int)store1.finish - store1.start + 1) & 0xffffU; /* how many tracks got moved? */
-
-    /* find group to bump */
-    if(track < md->groups[group].start)
-    {
-        for(index = 0; index < md->group_count; index++)
-        {
-            if(md->groups[index].start > track)
-            {
-                for(i = group - 1; i >= index; i--)
-                {
-                    /* all tracks get moved gs spots */
-                    p[i].start = ((unsigned int)p[i].start + gs) & 0xffffU;
-
-                    if(p[i].finish != 0)
-                        p[i].finish = ((unsigned int)p[1].finish + gs) & 0xffffU;
-
-                    p[i + 1] = p[i]; /* bump group down the list */
-                }
-
-                p[index] = store1;
-                break;
-            }
-            else
-            {
-                if((group + 1) < md->group_count)
-                {
-                    for(i = group + 1; i < md->group_count; i++)
-                    {
-                        /* all tracks get moved gs spots */
-                        p[i].start = ((unsigned int)p[i].start - gs) & 0xffffU;;
-
-                        if(p[i].finish != 0)
-                            p[i].finish = ((unsigned int)p[1].finish - gs) & 0xffffU;
-
-                        p[i - 1] = p[i]; /* bump group down the list */
-                    }
-
-                    p[index] = store1;
-                    break;
-                }
-            }
-        }
-    }
-
-    /* free all memory, then make our copy the real info */
-    netmd_clean_disc_info(md);
-    md->groups = p;
-
-    netmd_write_disc_header(dev, md);
-    return 0;
+    return -1;
 }
 
-int netmd_delete_group(netmd_dev_handle* dev, minidisc* md, const unsigned int group)
+int netmd_delete_group(netmd_dev_handle* dev, HndMdHdr md, const unsigned int group)
 {
-    unsigned int index = 0;
-    struct netmd_group *p;
-
-    /* check if requested group exists */
-    if(group > md->group_count)
-        return -1;
-
-    /* create a copy of groups below requested group */
-    p = malloc(sizeof(struct netmd_group) * (md->group_count - 1));
-    for(index = 0; index < group; index++)
+    if (md_header_del_group(md, group) == 0)
     {
-        p[index].name = md->groups[index].name;
-        p[index].start = md->groups[index].start;
-        p[index].finish = md->groups[index].finish;
+        return netmd_write_disc_header(dev, md);
     }
-
-    /* copy groups above requested group */
-    for(; index < (md->group_count - 1); index++)
-    {
-        p[index].name = md->groups[index+1].name;
-        p[index].start = md->groups[index+1].start;
-        p[index].finish = md->groups[index+1].finish;
-    }
-
-    /* free memory, then make our copy the real info */
-    free(md->groups);
-    md->groups = p;
-
-    /* one less group now */
-    md->group_count--;
-
-    netmd_write_disc_header(dev, md);
-    return 0;
+    return -1;
 }
 
-size_t netmd_calculate_number_length(const unsigned int num)
+static int request_disc_header_size(netmd_dev_handle* devh)
 {
-    if (num >= 100) {
-        return 3;
+    int ret = 0;
+    char *buff = NULL;
+    request_disc_title_ex(devh, &buff);
+
+    if (buff != NULL)
+    {
+        ret = strlen(buff);
+        free(buff);
     }
 
-    if (num >= 10) {
-        return 2;
-    }
-
-    return 1;
-
+    return ret;
 }
 
-size_t netmd_calculate_disc_header_length(minidisc* md)
+int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
 {
-    size_t header_size;
-    unsigned int i;
-
-    header_size = 0;
-    if (md->groups[0].start == 0)
-    {
-        /* '\0' for disc title */
-        header_size++;
-    }
-
-    for(i = 0; i < md->group_count; i++)
-    {
-        if(md->groups[i].start > 0)
-        {
-            header_size += netmd_calculate_number_length(md->groups[i].start);
-
-            if(md->groups[i].finish != 0)
-            {
-                /* '-' */
-                header_size++;
-                header_size += netmd_calculate_number_length(md->groups[i].finish);
-            }
-        }
-
-        /* ';' '//' */
-        header_size += 3;
-        header_size += strlen(md->groups[i].name);
-    }
-
-    /* '\0' */
-    header_size++;
-    return header_size;
-}
-
-size_t netmd_calculate_remaining(char** position, size_t remaining, size_t written)
-{
-    if (remaining > written)
-    {
-        (*position) += written;
-        remaining -= written;
-    }
-    else
-    {
-        (*position) += remaining;
-        remaining = 0;
-    }
-
-    return remaining;
-}
-
-char* netmd_generate_disc_header(minidisc* md, char* header, size_t header_length)
-{
-    unsigned int i;
-    size_t remaining, written;
-    char* position;
-    int result;
-
-    position = header;
-    remaining = header_length - 1;
-
-    if (md->groups[0].start == 0)
-    {
-        strncat(position, "0", remaining);
-        written = strlen(position);
-        remaining = netmd_calculate_remaining(&position, remaining, written);
-    }
-
-    for(i = 0; i < md->group_count; i++)
-    {
-        if(md->groups[i].start > 0)
-        {
-            result = snprintf(position, remaining, "%d", md->groups[i].start);
-            if (result > 0) {
-                written = (size_t)result;
-                remaining = netmd_calculate_remaining(&position, remaining, written);
-
-                if(md->groups[i].finish != 0)
-                {
-                    result = snprintf(position, remaining, "-%d", md->groups[i].finish);
-                    if (result > 0) {
-                        written = (size_t)result;
-                        remaining = netmd_calculate_remaining(&position, remaining, written);
-                    }
-                }
-            }
-        }
-
-        result = snprintf(position, remaining, ";%s//", md->groups[i].name);
-        if (result > 0) {
-            written = (size_t)result;
-            remaining = netmd_calculate_remaining(&position, remaining, written);
-        }
-    }
-
-    position[0] = '\0';
-    return header;
-}
-
-int netmd_write_disc_header(netmd_dev_handle* devh, minidisc* md)
-{
-
-    size_t header_size;
-    size_t request_size;
-    char* header = 0;
+    size_t header_size     = 0;
+    size_t old_header_size = request_disc_header_size(devh);
+    size_t request_size    = 0;
+    
+    /* new header */
+    const char* header = md_header_to_string(md);
     unsigned char* request = 0;
-    unsigned char hs[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x03, 0x00};
+
+    unsigned char hs[]  = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
     unsigned char hs2[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
+    unsigned char hs3[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x03, 0x00};
+    unsigned char hs4[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
+
+
+
     unsigned char write_req[] = {0x00, 0x18, 0x07, 0x02, 0x20, 0x18,
                                  0x01, 0x00, 0x00, 0x30, 0x00, 0x0a,
                                  0x00, 0x50, 0x00, 0x00, 0x00, 0x00,
@@ -884,25 +483,24 @@ int netmd_write_disc_header(netmd_dev_handle* devh, minidisc* md)
     int ret;
     printf("sending write disc header handshake");
     netmd_exch_message(devh, hs, 8, reply);
-    printf("...OK\n");
-    header_size = netmd_calculate_disc_header_length(md);
-    header = malloc(sizeof(char) * header_size);
-    memset(header, 0, header_size);
+    netmd_exch_message(devh, hs2, 8, reply);
+    netmd_exch_message(devh, hs3, 8, reply);
 
-    netmd_generate_disc_header(md, header, header_size);
+    printf("...OK\n");
+    header_size = strlen(header);
+    printf("Header size: %d\n", header_size);
 
     request_size = header_size + sizeof(write_req);
     request = malloc(request_size);
     memset(request, 0, request_size);
 
     memcpy(request, write_req, sizeof(write_req));
-    request[16] = (header_size - 1) & 0xff; /* new size - null */
-    request[20] = md->header_length & 0xff; /* old size */
+    *(uint16_t*)&request[15] = netmd_htons(header_size);
+    *(uint16_t*)&request[19] = netmd_htons(old_header_size);
 
     memcpy(request + sizeof(write_req), header, header_size);
-    header[header_size - 1] = '\0';
-
     ret = netmd_exch_message(devh, request, request_size, reply);
+    netmd_exch_message(devh, hs4, 8, reply);
     free(request);
 
     return ret;
@@ -1146,19 +744,6 @@ int netmd_erase_disc(netmd_dev_handle* dev)
     return ret;
 }
 
-void netmd_clean_disc_info(minidisc *md)
-{
-    unsigned int i;
-    for(i = 0; i < md->group_count; i++)
-    {
-        free(md->groups[i].name);
-        md->groups[i].name = NULL;
-    }
-
-    free(md->groups);
-    md->groups = NULL;
-}
-
 /* AV/C Description Spefication OPEN DESCRIPTOR (0x08),
  * subfunction "open for write" (0x03) */
 int netmd_cache_toc(netmd_dev_handle* dev)
@@ -1207,5 +792,55 @@ int netmd_release_dev(netmd_dev_handle* dev)
     unsigned char reply[255];
 
     ret = netmd_exch_message(dev, request, sizeof(request), reply);
+    return ret;
+}
+
+/*! @brief      request disc title (raw header)
+
+    @param      dev     The dev
+    @param      buffer  The buffer
+    @param[in]  size    The size
+
+    @return     title size
+ */
+int netmd_request_raw_header(netmd_dev_handle* dev, char* buffer, size_t size)
+{
+    return request_disc_title(dev, buffer, size);
+}
+
+int netmd_request_raw_header_ex(netmd_dev_handle* dev, char** buffer)
+{
+    return request_disc_title_ex(dev, buffer);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      get track count from MD device
+//!
+//! @param[in]  dev     The dev handle
+//! @param[out] tcount  The tcount buffer
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount)
+{
+    unsigned char req[] = {0x00, 0x18, 0x06, 0x02, 0x10, 0x10, 
+                           0x01, 0x30, 0x00, 0x10, 0x00, 0xff, 
+                           0x00, 0x00, 0x00, 0x00, 0x00};
+    
+    unsigned char reply[255];
+
+    int ret = netmd_exch_message(dev, req, 17, reply);
+
+    if (ret > 0)
+    {
+        // last byte contains the track count
+        *tcount = reply[ret - 1];
+        ret = 0;
+    }
+    else
+    {
+        ret = -1;
+    }
+
     return ret;
 }

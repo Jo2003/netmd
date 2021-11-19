@@ -6,8 +6,8 @@ set(CMAKE_BUILD_TYPE Release)
 file(GLOB SOURCES "*.c")
 
 #Generate the shared library from the sources
-add_library(snetmd STATIC ${SOURCES})
-add_library(netmd SHARED ${SOURCES})
+add_library(snetmd STATIC ${SOURCES} "CMDiscHeader.cpp")
+add_library(netmd SHARED ${SOURCES} "CMDiscHeader.cpp")
 
 target_link_libraries(netmd "gcrypt")
 target_link_libraries(netmd "usb-1.0")
