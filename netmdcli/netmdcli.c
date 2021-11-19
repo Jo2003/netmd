@@ -402,9 +402,27 @@ int main(int argc, char* argv[])
         else if(strcmp("settitle", argv[1]) == 0)
         {
             if (!check_args(argc, 2, "settitle")) return -1;
-            netmd_cache_toc(devh);
+            // netmd_cache_toc(devh);
             netmd_set_disc_title(devh, argv[2], strlen(argv[2]));
-            netmd_sync_toc(devh);
+            // netmd_sync_toc(devh);
+        }
+        else if(strcmp("add_group", argv[1]) == 0)
+        {
+            if (!check_args(argc, 4, "add_group")) return -1;
+            i = strtoul(argv[3], NULL, 10);
+            j = strtoul(argv[4], NULL, 10);
+            if (md_header_add_group(md, argv[2], i, j) > 0)
+            {
+                netmd_write_disc_header(devh, md);
+            }
+        }
+        else if(strcmp("rename_disc", argv[1]) == 0)
+        {
+            if (!check_args(argc, 2, "rename_disc")) return -1;
+            if (md_header_set_disc_title(md, argv[2]) == 0)
+            {
+                netmd_write_disc_header(devh, md);
+            }
         }
         else if(strcmp("group", argv[1]) == 0)
         {
@@ -845,6 +863,7 @@ void print_json_disc_info(netmd_device* dev, netmd_dev_handle* devh, HndMdHdr md
     }
 
     printf(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    fflush(stdout);
 
     // Clean up JSON object
     json_object_put(json);
@@ -1207,6 +1226,8 @@ void print_syntax()
     puts("json - print disc info in json format");
     puts("json_short - print short disc info in json format");
     puts("disc_info - print disc info in plain text");
+    puts("add_group <title> <first group track> <last group track> - add a new group and place a track range");
+    puts("rename_disc <string> - sets the disc title w/o touching group infomration");
     puts("rename # <string> - rename track # to <string> track numbers are off by one (ie track 1 is 0)");
     puts("move #1 #2 - make track #1 track #2");
     puts("groupmove #1 #2 - make group #1 start at track #2 !BUGGY!");

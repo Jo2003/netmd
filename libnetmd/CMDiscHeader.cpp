@@ -190,16 +190,22 @@ std::string CMDiscHeader::toString()
 {
 	std::ostringstream oss;
 
+	if (mpCStringHeader != nullptr)
+	{
+		free(mpCStringHeader);
+		mpCStringHeader = nullptr;
+	}
+
 	Groups_t tmpGrps = mGroups;
 
 	Group_t& title = tmpGrps.at(0);
 
-	if ((title.mFirst == 0) && !title.mName.empty())
+	if (title.mFirst == 0)
 	{
 		if (tmpGrps.size() == 1)
 		{
-			oss << title.mName;
-			return oss.str();
+			mpCStringHeader = strdup(title.mName.c_str());
+			return title.mName;
 		}
 		else
 		{
@@ -226,12 +232,6 @@ std::string CMDiscHeader::toString()
 		oss << ";" << g.mName << "//";
 	}
 
-	if (mpCStringHeader != nullptr)
-	{
-		free(mpCStringHeader);
-		mpCStringHeader = nullptr;
-	}
-
 	mpCStringHeader = strdup(oss.str().c_str());
 
 	return oss.str();
@@ -253,8 +253,13 @@ int CMDiscHeader::addGroup(const std::string& name, int16_t first, int16_t last)
 
 	if (sanityCheck(tmpGrps) == 0)
 	{
+		netmd_log(NETMD_LOG_VERBOSE, "Sanity check for 'addGroup()' successful!\n", mGroupId);
 		mGroups = tmpGrps;
 		return mGroupId - 1;
+	}
+	else
+	{
+		netmd_log(NETMD_LOG_ERROR, "Sanity check for 'addGroup()' not(!) successful!\n");
 	}
 
 	return -1;
@@ -513,6 +518,13 @@ std::string CMDiscHeader::trackGroup(int16_t track, int16_t* pGid)
 	std::string ret;
 	int16_t first, last;
 	*pGid = -1;
+
+	if (mpLastString != nullptr)
+	{
+		free(mpLastString);
+		mpLastString = nullptr;
+	}
+
 	for (const auto& g : mGroups)
 	{
 		first =  g.mFirst;
@@ -523,11 +535,6 @@ std::string CMDiscHeader::trackGroup(int16_t track, int16_t* pGid)
 			ret   = g.mName;
 			*pGid = g.mGid;
 
-			if (mpLastString != nullptr)
-			{
-				free(mpLastString);
-				mpLastString = nullptr;
-			}
 			mpLastString = strdup(ret.c_str());
 			break;
 		}

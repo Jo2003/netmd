@@ -22,6 +22,7 @@
  *
  */
 
+#include <stdio.h>
 #include <unistd.h>
 
 #include "common.h"
@@ -254,6 +255,7 @@ int netmd_set_title(netmd_dev_handle* dev, const uint16_t track, const char* con
     if(oldsize == -1)
         oldsize = 0; /* Reading failed -> no title at all, replace 0 bytes */
 
+    
     size = strlen(buffer);
     title_request = malloc(sizeof(char) * (0x15 + size));
     memcpy(title_request, title_header, 0x15);
@@ -348,7 +350,6 @@ int netmd_initialize_disc_info(netmd_dev_handle* devh, HndMdHdr* md)
         *md = create_md_header(discHeader);
         free(discHeader);
     }
-
     return strlen(md_header_to_string(*md));
 }
 
@@ -359,9 +360,14 @@ void print_groups(HndMdHdr md)
 
 int netmd_create_group(netmd_dev_handle* dev, HndMdHdr md, char* name, int first, int last)
 {
-    if (md_header_add_group(md, name, first, last) == 0)
+    if (md_header_add_group(md, name, first, last) > -1)
     {
+        netmd_log(NETMD_LOG_VERBOSE, "New group %s (%d ... %d) added!\n", name, first, last);
         netmd_write_disc_header(dev, md);
+    }
+    else
+    {
+        netmd_log(NETMD_LOG_ERROR, "Error: Can't add new group %s (%d ... %d)!\n", name, first, last);
     }
     return 0;
 }
