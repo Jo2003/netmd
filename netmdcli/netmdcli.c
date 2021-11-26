@@ -32,6 +32,7 @@
 
 static json_object *json;
 
+void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdHdr md);
 void print_json_disc_info(netmd_device* dev,  netmd_dev_handle* devh, HndMdHdr md, int shortJson);
 void print_disc_info(netmd_dev_handle* devh, HndMdHdr md);
 void print_current_track_info(netmd_dev_handle* devh);
@@ -365,6 +366,10 @@ int main(int argc, char* argv[])
         else if(strcmp("json_short", argv[1]) == 0)
         {
             print_json_disc_info(netmd, devh, md, 1);
+        }
+        else if(strcmp("json_gui", argv[1]) == 0)
+        {
+            print_json_disc_info_gui(netmd, devh, md);
         }
         else if(strcmp("disc_info", argv[1]) == 0)
         {
@@ -732,6 +737,97 @@ void print_disc_info(netmd_dev_handle* devh, HndMdHdr md)
 static time_t toSec(netmd_time* t)
 {
     return (t->hour * 3600) + (t->minute * 60) + t->second;
+}
+
+void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdHdr md)
+{
+    // Construct JSON object
+    json = json_object_new_object();
+    json_object_object_add(json, "title",   json_object_new_string(md_header_disc_title(md)));
+    json_object_object_add(json, "otf_enc", json_object_new_int(dev->otf_conv));
+
+    uint16_t tc = 0;
+    if (netmd_request_track_count(devh, &tc) == 0)
+    {
+        json_object_object_add(json, "trk_count",  json_object_new_int(tc));
+    }
+
+    netmd_disc_capacity capacity;
+    netmd_get_disc_capacity(devh, &capacity);
+    json_object_object_add(json, "t_used", json_object_new_int(toSec(&capacity.recorded)));
+    json_object_object_add(json, "t_total", json_object_new_int(toSec(&capacity.total)));
+    json_object_object_add(json, "t_free", json_object_new_int(toSec(&capacity.available)));
+    
+    MDGroups* pGroups = md_header_groups(md);
+    if (pGroups != NULL)
+    {
+        json_object* groups = json_object_new_array();
+        for (int i = 0; i < pGroups->mCount; i++)
+        {
+            if (pGroups->mpGroups[i].mFirst > 0)
+            {
+                int first = pGroups->mpGroups[i].mFirst;
+                int last  = (pGroups->mpGroups[i].mLast == -1) ? first : pGroups->mpGroups[i].mLast;
+                json_object* group = json_object_new_object();
+                json_object_object_add(group, "name", json_object_new_string(pGroups->mpGroups[i].mpName));
+                json_object_object_add(group, "first", json_object_new_int(first));
+                json_object_object_add(group, "last", json_object_new_int(last));
+                json_object_array_add(groups, group);
+            }
+        }
+        json_object_object_add(json, "groups", groups);
+        md_header_free_groups(&pGroups);
+    }
+
+    json_object* tracks = json_object_new_array();
+    unsigned char bitrate_id;
+    unsigned char flags;
+    unsigned char channel;
+    char *name, buffer[256];
+    struct netmd_track time;
+    struct netmd_pair const *trprot, *bitrate;
+
+    trprot = bitrate = 0;
+
+    for(uint16_t i = 0; i < tc; i++)
+    {
+        json_object* track = json_object_new_object();
+        netmd_request_title(devh, i, buffer, 256);
+        netmd_request_track_time(devh, i, &time);
+        netmd_request_track_flags(devh, i, &flags);
+        netmd_request_track_bitrate(devh, i, &bitrate_id, &channel);
+
+        trprot = find_pair(flags, trprot_settings);
+        bitrate = find_pair(bitrate_id, bitrates);
+
+        /* Skip 'LP:' prefix... the codec type shows up in the list anyway*/
+        if( strncmp( buffer, "LP:", 3 ))
+        {
+            name = buffer;
+        } else {
+            name = buffer + 3;
+        }
+
+        // Format track time
+        char time_buf[9];
+        sprintf(time_buf, "%02i:%02i:%02i", time.minute, time.second, time.tenth);
+
+        // Create JSON track object and add to array
+        json_object_object_add(track, "no",         json_object_new_int(i));
+        json_object_object_add(track, "protect",    json_object_new_string(trprot->name));
+        json_object_object_add(track, "bitrate",    json_object_new_string(bitrate->name));
+        json_object_object_add(track, "time",       json_object_new_string(time_buf));
+        json_object_object_add(track, "name",       json_object_new_string(name));
+
+        json_object_array_add(tracks, track);
+    }
+    json_object_object_add(json, "tracks", tracks);
+
+    printf(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    fflush(stdout);
+
+    // Clean up JSON object
+    json_object_put(json);
 }
 
 void print_json_disc_info(netmd_device* dev, netmd_dev_handle* devh, HndMdHdr md, int shortJson)
@@ -1225,6 +1321,7 @@ void print_syntax()
     puts("Commands:");
     puts("json - print disc info in json format");
     puts("json_short - print short disc info in json format");
+    puts("json_gui - print disc info in json format to be used in GUI");
     puts("disc_info - print disc info in plain text");
     puts("add_group <title> <first group track> <last group track> - add a new group and place a track range");
     puts("rename_disc <string> - sets the disc title w/o touching group infomration");

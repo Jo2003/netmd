@@ -22,10 +22,10 @@
 //! @brief      Constructs a new instance.
 //-----------------------------------------------------------------------------
 CMDiscHeader::CMDiscHeader() : mGroupId(0), 
-	mpCStringHeader(nullptr), mpLastString(nullptr)
+    mpCStringHeader(nullptr), mpLastString(nullptr)
 {
-	// add title entry
-	mGroups.push_back({mGroupId++, 0, -1, ""});
+    // add title entry
+    mGroups.push_back({mGroupId++, 0, -1, ""});
 }
 
 //-----------------------------------------------------------------------------
@@ -34,9 +34,9 @@ CMDiscHeader::CMDiscHeader() : mGroupId(0),
 //! @param[in]  header  The RAW disc header as string
 //-----------------------------------------------------------------------------
 CMDiscHeader::CMDiscHeader(const std::string& header) : mGroupId(0), 
-	mpCStringHeader(nullptr), mpLastString(nullptr)
+    mpCStringHeader(nullptr), mpLastString(nullptr)
 {
-	fromString(header);
+    fromString(header);
 }
 
 //-----------------------------------------------------------------------------
@@ -44,17 +44,17 @@ CMDiscHeader::CMDiscHeader(const std::string& header) : mGroupId(0),
 //-----------------------------------------------------------------------------
 CMDiscHeader::~CMDiscHeader()
 {
-	if (mpCStringHeader != nullptr)
-	{
-		free(mpCStringHeader);
-		mpCStringHeader = nullptr;
-	}
+    if (mpCStringHeader != nullptr)
+    {
+        free(mpCStringHeader);
+        mpCStringHeader = nullptr;
+    }
 
-	if (mpLastString != nullptr)
-	{
-		free(mpLastString);
-		mpLastString = nullptr;
-	}
+    if (mpLastString != nullptr)
+    {
+        free(mpLastString);
+        mpLastString = nullptr;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -66,56 +66,56 @@ CMDiscHeader::~CMDiscHeader()
 //-----------------------------------------------------------------------------
 int CMDiscHeader::fromString(const std::string& header)
 {
-	mGroups.clear();
+    mGroups.clear();
 
-	if (header.empty())
-	{
-		mGroups.push_back({mGroupId++, 0, -1, ""});
-	}
-	else if (header.find("//") == std::string::npos)
-	{
-		mGroups.push_back({mGroupId++, 0, -1, header});
-	}
-	else
-	{
-		std::size_t pos = 0, num, end, dash;
-		std::string tok, numb;
-		Group_t group;
+    if (header.empty())
+    {
+        mGroups.push_back({mGroupId++, 0, -1, ""});
+    }
+    else if (header.find("//") == std::string::npos)
+    {
+        mGroups.push_back({mGroupId++, 0, -1, header});
+    }
+    else
+    {
+        std::size_t pos = 0, num, end, dash;
+        std::string tok, numb;
+        Group_t group;
 
-		while ((end = header.find("//", pos)) != std::string::npos)
-		{
-			group.mFirst = -1;
-			group.mLast  = -1;
-				
-			tok = header.substr(pos, end - pos);
-			netmd_log(NETMD_LOG_VERBOSE, "Parse token '%s'\n", tok.c_str());
-			pos = end + 2;
-			num = tok.find(';');
-			
-			group.mName = tok.substr(num + 1);
-			netmd_log(NETMD_LOG_VERBOSE, "Group name '%s'\n", group.mName.c_str());
+        while ((end = header.find("//", pos)) != std::string::npos)
+        {
+            group.mFirst = -1;
+            group.mLast  = -1;
+                
+            tok = header.substr(pos, end - pos);
+            netmd_log(NETMD_LOG_VERBOSE, "Parse token '%s'\n", tok.c_str());
+            pos = end + 2;
+            num = tok.find(';');
+            
+            group.mName = tok.substr(num + 1);
+            netmd_log(NETMD_LOG_VERBOSE, "Group name '%s'\n", group.mName.c_str());
 
-			if ((num != std::string::npos) && (num > 0))
-			{
-				numb = tok.substr(0, num);
+            if ((num != std::string::npos) && (num > 0))
+            {
+                numb = tok.substr(0, num);
 
-				if ((dash = numb.find('-')) != std::string::npos)
-				{
-					group.mFirst = atoi(numb.substr(0, dash).c_str());
-					group.mLast  = atoi(numb.substr(dash + 1).c_str());
-				}
-				else
-				{
-					group.mFirst = atoi(numb.c_str());
-				}
-			}
+                if ((dash = numb.find('-')) != std::string::npos)
+                {
+                    group.mFirst = atoi(numb.substr(0, dash).c_str());
+                    group.mLast  = atoi(numb.substr(dash + 1).c_str());
+                }
+                else
+                {
+                    group.mFirst = atoi(numb.c_str());
+                }
+            }
 
-			group.mGid = mGroupId++;
-			mGroups.push_back(group);
-		}
-	}
+            group.mGid = mGroupId++;
+            mGroups.push_back(group);
+        }
+    }
 
-	return sanityCheck(mGroups);
+    return sanityCheck(mGroups);
 }
 
 //-----------------------------------------------------------------------------
@@ -127,44 +127,44 @@ int CMDiscHeader::fromString(const std::string& header)
 //-----------------------------------------------------------------------------
 int CMDiscHeader::sanityCheck(const Groups_t& grps) const
 {
-	int last = 0, ret = 0;
+    int last = 0, ret = 0;
 
-	Groups_t tmpGrps = grps;
+    Groups_t tmpGrps = grps;
 
-	std::sort(tmpGrps.begin(), tmpGrps.end(), 
-		&CMDiscHeader::groupCompare);
+    std::sort(tmpGrps.begin(), tmpGrps.end(), 
+        &CMDiscHeader::groupCompare);
 
-	for(const auto& g : tmpGrps)
-	{
-		if ((g.mFirst == 0) && (g.mLast != -1))
-		{
-			netmd_log(NETMD_LOG_ERROR, "Title group can't have a last entry!\n");
-			ret = -1;
-			break;
-		}
-		else if ((g.mFirst == -1) && (g.mLast != -1))
-		{
-			netmd_log(NETMD_LOG_ERROR, "An empty group can't have a last entry!\n");
-			ret = -1;
-			break;
-		}
-		else if ((g.mFirst > g.mLast) && (g.mLast != -1))
-		{
-			netmd_log(NETMD_LOG_ERROR, "First track number can't be larger than last track number!\n");
-			ret = -1;
-			break;
-		}
-		else if ((g.mFirst > 0) && (g.mFirst <= last))
-		{
-			netmd_log(NETMD_LOG_ERROR, "Some groups share the same track numbers!\n");
-			ret = -1;
-			break;
-		}
+    for(const auto& g : tmpGrps)
+    {
+        if ((g.mFirst == 0) && (g.mLast != -1))
+        {
+            netmd_log(NETMD_LOG_ERROR, "Title group can't have a last entry!\n");
+            ret = -1;
+            break;
+        }
+        else if ((g.mFirst == -1) && (g.mLast != -1))
+        {
+            netmd_log(NETMD_LOG_ERROR, "An empty group can't have a last entry!\n");
+            ret = -1;
+            break;
+        }
+        else if ((g.mFirst > g.mLast) && (g.mLast != -1))
+        {
+            netmd_log(NETMD_LOG_ERROR, "First track number can't be larger than last track number!\n");
+            ret = -1;
+            break;
+        }
+        else if ((g.mFirst > 0) && (g.mFirst <= last))
+        {
+            netmd_log(NETMD_LOG_ERROR, "Some groups share the same track numbers!\n");
+            ret = -1;
+            break;
+        }
 
-		last  = (g.mLast == -1) ? g.mFirst : g.mLast;
-	}
+        last  = (g.mLast == -1) ? g.mFirst : g.mLast;
+    }
 
-	return ret;
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
@@ -177,8 +177,8 @@ int CMDiscHeader::sanityCheck(const Groups_t& grps) const
 //-----------------------------------------------------------------------------
 bool CMDiscHeader::groupCompare(const Group_t& a, const Group_t& b)
 {
-	// empty groups (first == -1) must be last
-	return ((a.mFirst < b.mFirst) && (a.mFirst != -1));
+    // empty groups (first == -1) must be last
+    return ((a.mFirst < b.mFirst) && (a.mFirst != -1));
 }
 
 //-----------------------------------------------------------------------------
@@ -188,53 +188,53 @@ bool CMDiscHeader::groupCompare(const Group_t& a, const Group_t& b)
 //-----------------------------------------------------------------------------
 std::string CMDiscHeader::toString()
 {
-	std::ostringstream oss;
+    std::ostringstream oss;
 
-	if (mpCStringHeader != nullptr)
-	{
-		free(mpCStringHeader);
-		mpCStringHeader = nullptr;
-	}
+    if (mpCStringHeader != nullptr)
+    {
+        free(mpCStringHeader);
+        mpCStringHeader = nullptr;
+    }
 
-	Groups_t tmpGrps = mGroups;
+    Groups_t tmpGrps = mGroups;
 
-	Group_t& title = tmpGrps.at(0);
+    Group_t& title = tmpGrps.at(0);
 
-	if (title.mFirst == 0)
-	{
-		if (tmpGrps.size() == 1)
-		{
-			mpCStringHeader = strdup(title.mName.c_str());
-			return title.mName;
-		}
-		else
-		{
-			oss << "0;" << title.mName << "//";
-			tmpGrps.erase(tmpGrps.begin());
-		}
-	}
+    if (title.mFirst == 0)
+    {
+        if (tmpGrps.size() == 1)
+        {
+            mpCStringHeader = strdup(title.mName.c_str());
+            return title.mName;
+        }
+        else
+        {
+            oss << "0;" << title.mName << "//";
+            tmpGrps.erase(tmpGrps.begin());
+        }
+    }
 
-	std::sort(tmpGrps.begin(), tmpGrps.end(), 
-		&CMDiscHeader::groupCompare);
+    std::sort(tmpGrps.begin(), tmpGrps.end(), 
+        &CMDiscHeader::groupCompare);
 
-	for (const auto& g : tmpGrps)
-	{
-		if (g.mFirst != -1)
-		{
-			oss << g.mFirst;
-		}
+    for (const auto& g : tmpGrps)
+    {
+        if (g.mFirst != -1)
+        {
+            oss << g.mFirst;
+        }
 
-		if (g.mLast != -1)
-		{
-			oss << "-" << g.mLast;
-		}
+        if (g.mLast != -1)
+        {
+            oss << "-" << g.mLast;
+        }
 
-		oss << ";" << g.mName << "//";
-	}
+        oss << ";" << g.mName << "//";
+    }
 
-	mpCStringHeader = strdup(oss.str().c_str());
+    mpCStringHeader = strdup(oss.str().c_str());
 
-	return oss.str();
+    return oss.str();
 }
 
 //-----------------------------------------------------------------------------
@@ -248,21 +248,21 @@ std::string CMDiscHeader::toString()
 //-----------------------------------------------------------------------------
 int CMDiscHeader::addGroup(const std::string& name, int16_t first, int16_t last)
 {
-	Groups_t tmpGrps = mGroups;
-	tmpGrps.push_back({mGroupId++, first, last, name});
+    Groups_t tmpGrps = mGroups;
+    tmpGrps.push_back({mGroupId++, first, last, name});
 
-	if (sanityCheck(tmpGrps) == 0)
-	{
-		netmd_log(NETMD_LOG_VERBOSE, "Sanity check for 'addGroup()' successful!\n", mGroupId);
-		mGroups = tmpGrps;
-		return mGroupId - 1;
-	}
-	else
-	{
-		netmd_log(NETMD_LOG_ERROR, "Sanity check for 'addGroup()' not(!) successful!\n");
-	}
+    if (sanityCheck(tmpGrps) == 0)
+    {
+        netmd_log(NETMD_LOG_VERBOSE, "Sanity check for 'addGroup()' successful!\n", mGroupId);
+        mGroups = tmpGrps;
+        return mGroupId - 1;
+    }
+    else
+    {
+        netmd_log(NETMD_LOG_ERROR, "Sanity check for 'addGroup()' not(!) successful!\n");
+    }
 
-	return -1;
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -270,27 +270,27 @@ int CMDiscHeader::addGroup(const std::string& name, int16_t first, int16_t last)
 //-----------------------------------------------------------------------------
 void CMDiscHeader::listGroups() const
 {
-	for (const auto& g : mGroups)
-	{
-		std::cout << "Group " << g.mGid << " (" << g.mName << ")";
+    for (const auto& g : mGroups)
+    {
+        std::cout << "Group " << g.mGid << " (" << g.mName << ")";
 
-		if (g.mFirst == 0)
-		{
-			std::cout << ", disc title";
-		}
-		
-		if (g.mFirst > 0)
-		{
-			std::cout << ", track(s) " << g.mFirst;
-		}
-		
-		if (g.mLast != -1)
-		{
-			std::cout << " - " << g.mLast;
-		}
+        if (g.mFirst == 0)
+        {
+            std::cout << ", disc title";
+        }
+        
+        if (g.mFirst > 0)
+        {
+            std::cout << ", track(s) " << g.mFirst;
+        }
+        
+        if (g.mLast != -1)
+        {
+            std::cout << " - " << g.mLast;
+        }
 
-		std::cout << std::endl;
-	}
+        std::cout << std::endl;
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -303,45 +303,45 @@ void CMDiscHeader::listGroups() const
 //-----------------------------------------------------------------------------
 int CMDiscHeader::addTrackToGroup(int gid, int16_t track)
 {
-	Groups_t tmpGrps = mGroups;
-	int16_t first, last;
-	bool changed = false;
+    Groups_t tmpGrps = mGroups;
+    int16_t first, last;
+    bool changed = false;
 
-	for (auto& g : tmpGrps)
-	{
-		if (g.mGid == gid)
-		{
-			if ((g.mFirst == -1) && (g.mLast == -1))
-			{
-				g.mFirst = track;
-				changed  = true;
-				break;
-			}
+    for (auto& g : tmpGrps)
+    {
+        if (g.mGid == gid)
+        {
+            if ((g.mFirst == -1) && (g.mLast == -1))
+            {
+                g.mFirst = track;
+                changed  = true;
+                break;
+            }
 
-			first = g.mFirst;
-			last  = (g.mLast == -1) ? first : g.mLast;
+            first = g.mFirst;
+            last  = (g.mLast == -1) ? first : g.mLast;
 
-			if ((first - track) == 1)
-			{
-				g.mFirst = track;
-				changed  = true;
-			}
-			else if ((track - last) == 1)
-			{
-				g.mLast = track;
-				changed  = true;
-			}
-			break;
-		}
-	}
+            if ((first - track) == 1)
+            {
+                g.mFirst = track;
+                changed  = true;
+            }
+            else if ((track - last) == 1)
+            {
+                g.mLast = track;
+                changed  = true;
+            }
+            break;
+        }
+    }
 
-	if (changed && (sanityCheck(tmpGrps) == 0))
-	{
-		mGroups = tmpGrps;
-		return 0;
-	}
+    if (changed && (sanityCheck(tmpGrps) == 0))
+    {
+        mGroups = tmpGrps;
+        return 0;
+    }
 
-	return -1;
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -354,57 +354,57 @@ int CMDiscHeader::addTrackToGroup(int gid, int16_t track)
 //-----------------------------------------------------------------------------
 int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
 {
-	Groups_t tmpGrps = mGroups;
-	int16_t first, last;
-	bool changed = false;
+    Groups_t tmpGrps = mGroups;
+    int16_t first, last;
+    bool changed = false;
 
-	for (auto& g : tmpGrps)
-	{
-		if (g.mGid == gid)
-		{
-			if ((track == g.mFirst) && (g.mLast == -1))
-			{
-				g.mFirst = -1;
-				changed  = true;
-				break;
-			}
+    for (auto& g : tmpGrps)
+    {
+        if (g.mGid == gid)
+        {
+            if ((track == g.mFirst) && (g.mLast == -1))
+            {
+                g.mFirst = -1;
+                changed  = true;
+                break;
+            }
 
-			first = g.mFirst;
-			last  = (g.mLast == -1) ? first : g.mLast;
+            first = g.mFirst;
+            last  = (g.mLast == -1) ? first : g.mLast;
 
-			if (track == first)
-			{
-				first ++;
-			}
+            if (track == first)
+            {
+                first ++;
+            }
 
-			if (track == last)
-			{
-				last --;
-			}
+            if (track == last)
+            {
+                last --;
+            }
 
-			if (last == first)
-			{
-				g.mFirst = first;
-				g.mLast  = -1;
-				changed  = true;
-			}
-			else if(last > first)
-			{
-				g.mFirst = first;
-				g.mLast  = last;
-				changed  = true;
-			}
-			break;
-		}
-	}
+            if (last == first)
+            {
+                g.mFirst = first;
+                g.mLast  = -1;
+                changed  = true;
+            }
+            else if(last > first)
+            {
+                g.mFirst = first;
+                g.mLast  = last;
+                changed  = true;
+            }
+            break;
+        }
+    }
 
-	if (changed && (sanityCheck(tmpGrps) == 0))
-	{
-		mGroups = tmpGrps;
-		return 0;
-	}
+    if (changed && (sanityCheck(tmpGrps) == 0))
+    {
+        mGroups = tmpGrps;
+        return 0;
+    }
 
-	return -1;
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -416,21 +416,21 @@ int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
 //-----------------------------------------------------------------------------
 int CMDiscHeader::delGroup(int gid)
 {
-	int ret = -1;
+    int ret = -1;
 
-	Groups_t::const_iterator cit;
+    Groups_t::const_iterator cit;
 
-	for (cit = mGroups.cbegin(); cit != mGroups.cend(); cit ++)
-	{
-		if (cit->mGid == gid)
-		{
-			mGroups.erase(cit);
-			ret = 0;
-			break;
-		}
-	}
+    for (cit = mGroups.cbegin(); cit != mGroups.cend(); cit ++)
+    {
+        if (cit->mGid == gid)
+        {
+            mGroups.erase(cit);
+            ret = 0;
+            break;
+        }
+    }
 
-	return ret;
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
@@ -442,8 +442,8 @@ int CMDiscHeader::delGroup(int gid)
 //-----------------------------------------------------------------------------
 int CMDiscHeader::setDiscTitle(const std::string& title)
 {
-	mGroups.at(0).mName = title;
-	return 0;
+    mGroups.at(0).mName = title;
+    return 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -453,14 +453,14 @@ int CMDiscHeader::setDiscTitle(const std::string& title)
 //-----------------------------------------------------------------------------
 std::string CMDiscHeader::discTitle()
 {
-	if (mpLastString != nullptr)
-	{
-		free(mpLastString);
-		mpLastString = nullptr;
+    if (mpLastString != nullptr)
+    {
+        free(mpLastString);
+        mpLastString = nullptr;
 
-	}
-	mpLastString = strdup(mGroups.at(0).mName.c_str());
-	return mGroups.at(0).mName;
+    }
+    mpLastString = strdup(mGroups.at(0).mName.c_str());
+    return mGroups.at(0).mName;
 }
 
 //-----------------------------------------------------------------------------
@@ -473,16 +473,16 @@ std::string CMDiscHeader::discTitle()
 //-----------------------------------------------------------------------------
 int CMDiscHeader::renameGroup(int gid, const std::string& title)
 {
-	for (auto& g : mGroups)
-	{
-		if (g.mGid == gid)
-		{
-			g.mName = title;
-			return 0;
-		}
-	}
+    for (auto& g : mGroups)
+    {
+        if (g.mGid == gid)
+        {
+            g.mName = title;
+            return 0;
+        }
+    }
 
-	return -1;
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -492,7 +492,7 @@ int CMDiscHeader::renameGroup(int gid, const std::string& title)
 //-----------------------------------------------------------------------------
 const char* CMDiscHeader::stringHeader()
 {
-	return mpCStringHeader;
+    return mpCStringHeader;
 }
 
 //-----------------------------------------------------------------------------
@@ -502,7 +502,7 @@ const char* CMDiscHeader::stringHeader()
 //-----------------------------------------------------------------------------
 const char* CMDiscHeader::lastString()
 {
-	return mpLastString;
+    return mpLastString;
 }
 
 //-----------------------------------------------------------------------------
@@ -515,31 +515,31 @@ const char* CMDiscHeader::lastString()
 //-----------------------------------------------------------------------------
 std::string CMDiscHeader::trackGroup(int16_t track, int16_t* pGid)
 {
-	std::string ret;
-	int16_t first, last;
-	*pGid = -1;
+    std::string ret;
+    int16_t first, last;
+    *pGid = -1;
 
-	if (mpLastString != nullptr)
-	{
-		free(mpLastString);
-		mpLastString = nullptr;
-	}
+    if (mpLastString != nullptr)
+    {
+        free(mpLastString);
+        mpLastString = nullptr;
+    }
 
-	for (const auto& g : mGroups)
-	{
-		first =  g.mFirst;
-		last  = (g.mLast == -1) ? g.mFirst : g.mLast;
+    for (const auto& g : mGroups)
+    {
+        first =  g.mFirst;
+        last  = (g.mLast == -1) ? g.mFirst : g.mLast;
 
-		if ((track >= first) && (track <= last))
-		{
-			ret   = g.mName;
-			*pGid = g.mGid;
+        if ((track >= first) && (track <= last))
+        {
+            ret   = g.mName;
+            *pGid = g.mGid;
 
-			mpLastString = strdup(ret.c_str());
-			break;
-		}
-	}
-	return ret;
+            mpLastString = strdup(ret.c_str());
+            break;
+        }
+    }
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
@@ -551,18 +551,31 @@ std::string CMDiscHeader::trackGroup(int16_t track, int16_t* pGid)
 //-----------------------------------------------------------------------------
 int CMDiscHeader::unGroup(int16_t track)
 {
-	int16_t first, last;
-	for (const auto& g : mGroups)
-	{
-		first =  g.mFirst;
-		last  = (g.mLast == -1) ? g.mFirst : g.mLast;
+    int16_t first, last;
+    for (const auto& g : mGroups)
+    {
+        first =  g.mFirst;
+        last  = (g.mLast == -1) ? g.mFirst : g.mLast;
 
-		if ((track >= first) && (track <= last))
-		{
-			return delTrackFromGroup(g.mGid, track);
-		}
-	}
-	return -1;
+        if ((track >= first) && (track <= last))
+        {
+            return delTrackFromGroup(g.mGid, track);
+        }
+    }
+    return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      get all groups
+//!
+//! @return     const reference to groups
+//-----------------------------------------------------------------------------
+CMDiscHeader::Groups_t CMDiscHeader::groups() const
+{
+    Groups_t tmpGrps = mGroups;
+    std::sort(tmpGrps.begin(), tmpGrps.end(), 
+        &CMDiscHeader::groupCompare);
+    return tmpGrps;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -576,7 +589,7 @@ int CMDiscHeader::unGroup(int16_t track)
 //------------------------------------------------------------------------------
 HndMdHdr create_md_header(const char* content)
 {
-	return static_cast<HndMdHdr>(new CMDiscHeader((content == nullptr) ? "" : content));
+    return static_cast<HndMdHdr>(new CMDiscHeader((content == nullptr) ? "" : content));
 }
 
 //------------------------------------------------------------------------------
@@ -586,11 +599,11 @@ HndMdHdr create_md_header(const char* content)
 //------------------------------------------------------------------------------
 void free_md_header(HndMdHdr* hdl)
 {
-	if (*hdl != nullptr)
-	{
-		delete static_cast<CMDiscHeader*>(*hdl);
-		*hdl = nullptr;
-	}
+    if (*hdl != nullptr)
+    {
+        delete static_cast<CMDiscHeader*>(*hdl);
+        *hdl = nullptr;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -602,13 +615,13 @@ void free_md_header(HndMdHdr* hdl)
 //------------------------------------------------------------------------------
 const char* md_header_to_string(HndMdHdr hdl)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		static_cast<void>(pMDH->toString());
-		return pMDH->stringHeader();
-	}
-	return "";
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        static_cast<void>(pMDH->toString());
+        return pMDH->stringHeader();
+    }
+    return "";
 }
 
 //------------------------------------------------------------------------------
@@ -623,12 +636,12 @@ const char* md_header_to_string(HndMdHdr hdl)
 //------------------------------------------------------------------------------
 int md_header_add_group(HndMdHdr hdl, const char* name, int16_t first, int16_t last)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->addGroup(name, first, last);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->addGroup(name, first, last);
+    }
+    return -1;
 }
 
 
@@ -639,11 +652,11 @@ int md_header_add_group(HndMdHdr hdl, const char* name, int16_t first, int16_t l
 //------------------------------------------------------------------------------
 void md_header_list_groups(HndMdHdr hdl)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		pMDH->listGroups();
-	}
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        pMDH->listGroups();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -657,12 +670,12 @@ void md_header_list_groups(HndMdHdr hdl)
 //------------------------------------------------------------------------------
 int md_header_add_track_to_group(HndMdHdr hdl, int gid, int16_t track)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->addTrackToGroup(gid, track);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->addTrackToGroup(gid, track);
+    }
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -676,12 +689,12 @@ int md_header_add_track_to_group(HndMdHdr hdl, int gid, int16_t track)
 //-----------------------------------------------------------------------------
 int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->delTrackFromGroup(gid, track);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->delTrackFromGroup(gid, track);
+    }
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -694,12 +707,12 @@ int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track)
 //-----------------------------------------------------------------------------
 int md_header_del_group(HndMdHdr hdl, int gid)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->delGroup(gid);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->delGroup(gid);
+    }
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -712,12 +725,12 @@ int md_header_del_group(HndMdHdr hdl, int gid)
 //-----------------------------------------------------------------------------
 int md_header_set_disc_title(HndMdHdr hdl, const char* title)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->setDiscTitle(title);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->setDiscTitle(title);
+    }
+    return -1;
 }
 
 //-----------------------------------------------------------------------------
@@ -731,12 +744,12 @@ int md_header_set_disc_title(HndMdHdr hdl, const char* title)
 //-----------------------------------------------------------------------------
 int md_header_rename_group(HndMdHdr hdl, int gid, const char* title)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->renameGroup(gid, title);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->renameGroup(gid, title);
+    }
+    return -1;
 }
 
 //------------------------------------------------------------------------------
@@ -748,16 +761,16 @@ int md_header_rename_group(HndMdHdr hdl, int gid, const char* title)
 //------------------------------------------------------------------------------
 const char* md_header_disc_title(HndMdHdr hdl)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		if (!pMDH->discTitle().empty())
-		{
-			return pMDH->lastString();
-		}
-		
-	}
-	return "<untitled>";
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        if (!pMDH->discTitle().empty())
+        {
+            return pMDH->lastString();
+        }
+        
+    }
+    return "<untitled>";
 }
 
 //------------------------------------------------------------------------------
@@ -771,15 +784,15 @@ const char* md_header_disc_title(HndMdHdr hdl)
 //------------------------------------------------------------------------------
 const char* md_header_track_group(HndMdHdr hdl, int16_t track, int16_t* pGid)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		if (!pMDH->trackGroup(track, pGid).empty())
-		{
-			return pMDH->lastString();
-		}
-	}
-	return nullptr;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        if (!pMDH->trackGroup(track, pGid).empty())
+        {
+            return pMDH->lastString();
+        }
+    }
+    return nullptr;
 }
 
 //------------------------------------------------------------------------------
@@ -792,10 +805,84 @@ const char* md_header_track_group(HndMdHdr hdl, int16_t track, int16_t* pGid)
 //------------------------------------------------------------------------------
 int md_header_ungroup_track(HndMdHdr hdl, int16_t track)
 {
-	CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
-	if (pMDH != nullptr)
-	{
-		return pMDH->unGroup(track);
-	}
-	return -1;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->unGroup(track);
+    }
+    return -1;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      export all minidisc groups
+//!
+//! @param[in]  hdl The MD header handle
+//!
+//! @return     array of groups
+//------------------------------------------------------------------------------
+MDGroups* md_header_groups(HndMdHdr hdl)
+{
+    MDGroups* groups = nullptr;
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        CMDiscHeader::Groups_t g = pMDH->groups();
+        if (!g.empty())
+        {
+            groups = new MDGroups;
+
+            if (groups != nullptr)
+            {
+                groups->mCount = g.size();
+                groups->mpGroups = new MDGroup[groups->mCount];
+
+                if (groups->mpGroups != nullptr)
+                {
+                    MDGroup* pCGroup = groups->mpGroups;
+                    for (const auto& a : g)
+                    {
+                        pCGroup->mGid   = a.mGid;
+                        pCGroup->mFirst = a.mFirst;
+                        pCGroup->mLast  = a.mLast;
+                        pCGroup->mpName = new char[a.mName.size() + 1];
+                        if (pCGroup->mpName != nullptr)
+                        {
+                            std::strcpy(pCGroup->mpName, a.mName.c_str());
+                        }
+                        pCGroup ++;
+                    }
+                }
+            }
+        }
+    }
+    return groups;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      free groups you've got through md_header_groups()
+//!
+//! @param      groups  The groups
+//------------------------------------------------------------------------------
+void md_header_free_groups(MDGroups** groups)
+{
+    if (*groups != nullptr)
+    {
+        MDGroup* pCGroup = (*groups)->mpGroups;
+
+        if (pCGroup != nullptr)
+        {
+            for (int i = 0; i < (*groups)->mCount; i++)
+            {
+                if (pCGroup->mpName != nullptr)
+                {
+                    delete [] pCGroup->mpName;
+                }
+                pCGroup ++;
+            }
+            delete [] (*groups)->mpGroups;
+        }
+
+        delete *groups;
+        *groups = nullptr;
+    }
 }
