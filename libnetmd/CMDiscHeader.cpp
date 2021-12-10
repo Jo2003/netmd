@@ -16,6 +16,7 @@
  */
 #include <algorithm>
 #include <cstring>
+#include <regex>
 #include "CMDiscHeader.h"
 
 //-----------------------------------------------------------------------------
@@ -66,56 +67,80 @@ CMDiscHeader::~CMDiscHeader()
 //-----------------------------------------------------------------------------
 int CMDiscHeader::fromString(const std::string& header)
 {
+    int ret;
+    constexpr int GROUP_TRACKS = 1;
+    constexpr int GROUP_NAME   = 2;
+
     mGroups.clear();
 
-    if (header.empty())
+    // always add disc title!
+    mGroups.push_back({mGroupId++, 0, -1, ""});
+
+    // good ol' plain disc header?
+    if (!header.empty() && (header.find("//") == std::string::npos))
     {
-        mGroups.push_back({mGroupId++, 0, -1, ""});
-    }
-    else if (header.find("//") == std::string::npos)
-    {
-        mGroups.push_back({mGroupId++, 0, -1, header});
+        mGroups[0].mName = header;
     }
     else
     {
-        std::size_t pos = 0, num, end, dash;
-        std::string tok, numb;
-        Group_t group;
+        // we all love them: Regular Expressions!
+        std::regex pattern(R"(([0-9-]+);([^/]*)//)", std::regex_constants::extended);
+        auto start = std::sregex_iterator(header.begin(), header.end(), pattern);
+        auto end   = std::sregex_iterator();
 
-        while ((end = header.find("//", pos)) != std::string::npos)
+        if (std::distance(start, end))
         {
-            group.mFirst = -1;
-            group.mLast  = -1;
-                
-            tok = header.substr(pos, end - pos);
-            netmd_log(NETMD_LOG_VERBOSE, "Parse token '%s'\n", tok.c_str());
-            pos = end + 2;
-            num = tok.find(';');
-            
-            group.mName = tok.substr(num + 1);
-            netmd_log(NETMD_LOG_VERBOSE, "Group name '%s'\n", group.mName.c_str());
+            Group_t                group;
+            std::string::size_type dash;
+            std::smatch            match;
+            std::string            numb;
 
-            if ((num != std::string::npos) && (num > 0))
+            for (auto m = start; m != end; m++)
             {
-                numb = tok.substr(0, num);
+                match = *m;
+                numb  = match[GROUP_TRACKS].str();
 
-                if ((dash = numb.find('-')) != std::string::npos)
+                // 0 -> whole match
+                // 1 -> track(s)
+                // 2 -> group title
+                if (numb == "0")
                 {
-                    group.mFirst = atoi(numb.substr(0, dash).c_str());
-                    group.mLast  = atoi(numb.substr(dash + 1).c_str());
+                    // disc title ...
+                    mGroups[0].mName = match[GROUP_NAME].str();
                 }
                 else
                 {
-                    group.mFirst = atoi(numb.c_str());
+                    group.mFirst = -1;
+                    group.mLast  = -1;
+                    group.mName  = match[GROUP_NAME].str();
+
+                    if ((dash = numb.find('-')) != std::string::npos)
+                    {
+                        group.mFirst = atoi(numb.substr(0, dash).c_str());
+                        group.mLast  = atoi(numb.substr(dash + 1).c_str());
+                    }
+                    else
+                    {
+                        group.mFirst = atoi(numb.c_str());
+                    }
+
+                    // don't add unused groups!
+                    if (group.mFirst != -1)
+                    {
+                        group.mGid = mGroupId++;
+                        mGroups.push_back(group);
+                    }
                 }
             }
-
-            group.mGid = mGroupId++;
-            mGroups.push_back(group);
         }
     }
 
-    return sanityCheck(mGroups);
+    if ((ret = sanityCheck(mGroups)) == 0)
+    {
+        listGroups();
+    }
+
+    return ret;
 }
 
 //-----------------------------------------------------------------------------
@@ -272,7 +297,16 @@ void CMDiscHeader::listGroups() const
 {
     for (const auto& g : mGroups)
     {
-        std::cout << "Group " << g.mGid << " (" << g.mName << ")";
+        std::cout << "Group " << g.mGid;
+
+        if (g.mName.empty())
+        {
+            std::cout << " <untitled>";
+        }
+        else
+        {
+            std::cout << " '" << g.mName << "'";
+        }
 
         if (g.mFirst == 0)
         {
@@ -424,6 +458,7 @@ int CMDiscHeader::delGroup(int gid)
     {
         if (cit->mGid == gid)
         {
+            netmd_log(NETMD_LOG_VERBOSE, "Delete group %d, name: '%s'\n", cit->mGid, cit->mName.c_str());
             mGroups.erase(cit);
             ret = 0;
             break;
