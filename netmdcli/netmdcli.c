@@ -514,6 +514,30 @@ int main(int argc, char* argv[])
             if (!check_args(argc, 2, "m3uimport")) return -1;
             import_m3u_playlist(devh, argv[2]);
         }
+        else if(strcmp("del_track", argv[1]) == 0)
+        {
+            if (!check_args(argc, 2, "del_track")) return -1;
+            i = strtoul(argv[2], NULL, 10);
+            uint16_t tc = 0;
+            netmd_request_track_count(devh, &tc);
+
+            if (i < tc)
+            {
+                netmd_cache_toc(devh);
+                netmd_delete_track(devh, track);
+                netmd_wait_for_sync(devh);
+                netmd_sync_toc(devh);
+
+                if (md_header_del_track(md, i + 1) == 0)
+                {
+                    netmd_write_disc_header(devh, md);
+                }
+            }
+            else
+            {
+                netmd_log(NETMD_LOG_ERROR, "del_track: invalid track number %d\n", i);
+            }
+        }
         else if(strcmp("delete", argv[1]) == 0)
         {
             if (!check_args(argc, 2, "delete")) return -1;
@@ -1340,6 +1364,7 @@ void print_syntax()
     puts("pause - pause the unit");
     puts("stop - stop the unit");
     puts("delete #1 [#2] - delete track (or tracks in range #1-#2 if #2 given)");
+    puts("del_track #1 - delete track and update groups if needed");
     puts("erase [force] - erase the disc (the argument 'force' must be given to actually do it)");
     puts("m3uimport <file> - import song and disc title from a playlist");
     puts("send <file> [<string>] - send WAV format audio file to the device and set title to <string> (optional)");

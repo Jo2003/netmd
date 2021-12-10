@@ -392,44 +392,121 @@ int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
     int16_t first, last;
     bool changed = false;
 
-    for (auto& g : tmpGrps)
+    Groups_t::iterator it;
+    Groups_t::iterator eraseIt = tmpGrps.end();
+
+    for (it = tmpGrps.begin(); it != tmpGrps.end(); it++)
     {
-        if (g.mGid == gid)
+        first   = it->mFirst;
+        last    = (it->mLast == -1) ? first : it->mLast;
+        
+        if (it->mGid == gid)
         {
-            if ((track == g.mFirst) && (g.mLast == -1))
+            if ((track >= first) && (track <= last))
             {
-                g.mFirst = -1;
-                changed  = true;
+                changed = true;
+
+                last --;
+
+                if (last < first)
+                {
+                    eraseIt = it;
+                    continue;
+                }
+
+                if (first == last)
+                {
+                    last = -1;
+                }
+
+                it->mLast = last;
+            }
+            else
+            {
+                // track not found in group -> no change!
                 break;
             }
-
-            first = g.mFirst;
-            last  = (g.mLast == -1) ? first : g.mLast;
-
-            if (track == first)
-            {
-                first ++;
-            }
-
-            if (track == last)
-            {
-                last --;
-            }
-
-            if (last == first)
-            {
-                g.mFirst = first;
-                g.mLast  = -1;
-                changed  = true;
-            }
-            else if(last > first)
-            {
-                g.mFirst = first;
-                g.mLast  = last;
-                changed  = true;
-            }
-            break;
         }
+        else if ((it->mGid > gid) && (first > track))
+        {
+            changed = true;
+            it->mFirst --;
+            if (last != -1)
+            {
+                it->mLast --;
+            }
+        }
+    }
+
+    if (eraseIt != tmpGrps.end())
+    {
+        tmpGrps.erase(eraseIt);
+    }
+
+    if (changed && (sanityCheck(tmpGrps) == 0))
+    {
+        mGroups = tmpGrps;
+        return 0;
+    }
+
+    return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a track
+//!
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int CMDiscHeader::delTrack(int16_t track)
+{
+    Groups_t tmpGrps = mGroups;
+    int16_t first, last;
+    bool changed = false;
+
+    Groups_t::iterator it;
+    Groups_t::iterator eraseIt = tmpGrps.end();
+
+    for (it = tmpGrps.begin(); it != tmpGrps.end(); it++)
+    {
+        first   = it->mFirst;
+        last    = (it->mLast == -1) ? first : it->mLast;
+
+        if ((track >= first) && (track <= last))
+        {
+            changed = true;
+
+            last --;
+
+            if (last < first)
+            {
+                // erase empty group after loop
+                eraseIt = it;
+                continue;
+            }
+
+            if (first == last)
+            {
+                last = -1;
+            }
+
+            it->mLast = last;
+        }
+        else if (first > track)
+        {
+            changed = true;
+            it->mFirst --;
+            if (last != -1)
+            {
+                it->mLast --;
+            }
+        }
+    }
+
+    if (eraseIt != tmpGrps.end())
+    {
+        tmpGrps.erase(eraseIt);
     }
 
     if (changed && (sanityCheck(tmpGrps) == 0))
@@ -728,6 +805,24 @@ int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track)
     if (pMDH != nullptr)
     {
         return pMDH->delTrackFromGroup(gid, track);
+    }
+    return -1;
+}
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a track
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_track(HndMdHdr hdl, int16_t track)
+{
+    CMDiscHeader* pMDH = static_cast<CMDiscHeader*>(hdl);
+    if (pMDH != nullptr)
+    {
+        return pMDH->delTrack(track);
     }
     return -1;
 }

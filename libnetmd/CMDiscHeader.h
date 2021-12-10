@@ -111,6 +111,15 @@ public:
     int delTrackFromGroup(int gid, int16_t track);
 
     //-----------------------------------------------------------------------------
+    //! @brief      remove a track
+    //!
+    //! @param[in]  track  The track number
+    //!
+    //! @return     0 -> ok; -1 -> error
+    //-----------------------------------------------------------------------------
+    int delTrack(int16_t track);
+
+    //-----------------------------------------------------------------------------
     //! @brief      remove a group (included tracks become ungrouped)
     //!
     //! @param[in]  gid   The group id
@@ -299,6 +308,16 @@ int md_header_add_track_to_group(HndMdHdr hdl, int gid, int16_t track);
 //! @return     0 -> ok; -1 -> error
 //-----------------------------------------------------------------------------
 int md_header_del_track_from_group(HndMdHdr hdl, int gid, int16_t track);
+
+//-----------------------------------------------------------------------------
+//! @brief      remove a track
+//!
+//! @param[in]  hdl    The MD header handle
+//! @param[in]  track  The track number
+//!
+//! @return     0 -> ok; -1 -> error
+//-----------------------------------------------------------------------------
+int md_header_del_track(HndMdHdr hdl, int16_t track);
 
 //-----------------------------------------------------------------------------
 //! @brief      remove a group (included tracks become ungrouped)
