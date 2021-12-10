@@ -524,7 +524,7 @@ int main(int argc, char* argv[])
             if (i < tc)
             {
                 netmd_cache_toc(devh);
-                netmd_delete_track(devh, track);
+                netmd_delete_track(devh, i);
                 netmd_wait_for_sync(devh);
                 netmd_sync_toc(devh);
 

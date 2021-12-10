@@ -393,9 +393,7 @@ int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
     bool changed = false;
 
     Groups_t::iterator it;
-    Groups_t::iterator eraseIt = tmpGrps.end();
-
-    for (it = tmpGrps.begin(); it != tmpGrps.end(); it++)
+    for (it = tmpGrps.begin(); it != tmpGrps.end();)
     {
         first   = it->mFirst;
         last    = (it->mLast == -1) ? first : it->mLast;
@@ -410,7 +408,8 @@ int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
 
                 if (last < first)
                 {
-                    eraseIt = it;
+                    // erase empty group
+                    it = tmpGrps.erase(it);
                     continue;
                 }
 
@@ -436,11 +435,7 @@ int CMDiscHeader::delTrackFromGroup(int gid, int16_t track)
                 it->mLast --;
             }
         }
-    }
-
-    if (eraseIt != tmpGrps.end())
-    {
-        tmpGrps.erase(eraseIt);
+        it ++;
     }
 
     if (changed && (sanityCheck(tmpGrps) == 0))
@@ -466,9 +461,8 @@ int CMDiscHeader::delTrack(int16_t track)
     bool changed = false;
 
     Groups_t::iterator it;
-    Groups_t::iterator eraseIt = tmpGrps.end();
 
-    for (it = tmpGrps.begin(); it != tmpGrps.end(); it++)
+    for (it = tmpGrps.begin(); it != tmpGrps.end();)
     {
         first   = it->mFirst;
         last    = (it->mLast == -1) ? first : it->mLast;
@@ -481,8 +475,8 @@ int CMDiscHeader::delTrack(int16_t track)
 
             if (last < first)
             {
-                // erase empty group after loop
-                eraseIt = it;
+                // erase empty group
+                it = tmpGrps.erase(it);
                 continue;
             }
 
@@ -502,11 +496,7 @@ int CMDiscHeader::delTrack(int16_t track)
                 it->mLast --;
             }
         }
-    }
-
-    if (eraseIt != tmpGrps.end())
-    {
-        tmpGrps.erase(eraseIt);
+        it ++;
     }
 
     if (changed && (sanityCheck(tmpGrps) == 0))
