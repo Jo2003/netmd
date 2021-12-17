@@ -217,6 +217,18 @@ static size_t wav_data_position(const unsigned char * data, size_t offset, size_
 
 static int audio_supported(const unsigned char * file, netmd_wireformat * wireformat, unsigned char * diskformat, int * conversion, size_t * channels, size_t * headersize)
 {
+    // try to find atrac1 header ...
+    if ((file[1] == 0x08) && (strncmp("test", (const char*)file + 4, 4) == 0))
+    {
+        *wireformat = NETMD_WIREFORMAT_AT1;
+        *diskformat = NETMD_DISKFORMAT_SP_STEREO;
+        *channels   = NETMD_CHANNELS_STEREO;
+        *conversion = 0;
+        *headersize = 2048;
+        printf("ATRAC1 file recognized!\n");
+        return 1;
+    }
+
     if(strncmp("RIFF", (const char*)file, 4) != 0 || strncmp("WAVE", (const char*)file+8, 4) != 0 || strncmp("fmt ", (const char*)file+12, 4) != 0)
         return 0;                                             /* no valid WAV file or fmt chunk missing*/
 

@@ -346,6 +346,9 @@ size_t netmd_get_frame_size(netmd_wireformat wireformat)
     case NETMD_WIREFORMAT_PCM:
         return 2048;
 
+    case NETMD_WIREFORMAT_AT1:
+        return 424;
+
     case NETMD_WIREFORMAT_LP2:
         return 192;
         break;
