@@ -66,7 +66,7 @@ typedef enum {
     NETMD_WIREFORMAT_105KBPS = 0x90,
     NETMD_WIREFORMAT_LP2 = 0x94,
     NETMD_WIREFORMAT_LP4 = 0xa8,
-    NETMD_WIREFORMAT_AT1 = 0xac,
+    NETMD_WIREFORMAT_AT1 = 5,
 } netmd_wireformat;
 
 /**

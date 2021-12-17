@@ -30,6 +30,8 @@
 
 #define NO_ONTHEFLY_CONVERSION 0xf
 
+static unsigned char g_wireFormat = 0;
+
 static json_object *json;
 
 void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdHdr md);
@@ -204,6 +206,9 @@ static size_t wav_data_position(const unsigned char * data, size_t offset, size_
 {
     size_t i = offset, pos = 0;
 
+    if (offset == 2048)
+        return offset;
+
     while (i < len - 4) {
         if(strncmp("data", (const char*)data+i, 4) == 0) {
             pos = i;
@@ -297,7 +302,7 @@ int main(int argc, char* argv[])
 
     /* parse options */
     while (1) {
-        c = getopt(argc, argv, "tvd:");
+        c = getopt(argc, argv, "tvd:f:");
         if (c == -1) {
             break;
         }
@@ -321,6 +326,14 @@ int main(int argc, char* argv[])
                 }
             }
             break;
+        case 'f':
+            {
+                if (optarg)
+                {
+                    g_wireFormat = strtoul(optarg, NULL, 0);
+                    printf("Using Wireformat 0x%.02x on transfer...\n", g_wireFormat);
+                }
+            }
         default:
             fprintf(stderr, "Unknown option '%c'\n", c);
             break;
@@ -1182,6 +1195,10 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
 
         return NETMD_ERROR;
     }
+    else if (wireformat == NETMD_WIREFORMAT_AT1) {
+        audio_data_size = data_size - headersize;
+        audio_data      = data + headersize;
+    }
     else {
         netmd_log(NETMD_LOG_VERBOSE, "supported audio file detected\n");
         if ((data_position = wav_data_position(data, headersize, data_size)) == 0) {
@@ -1281,6 +1298,11 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     if ((discformat == NETMD_DISKFORMAT_SP_STEREO) && (onTheFlyConvert != NO_ONTHEFLY_CONVERSION))
     {
         discformat = onTheFlyConvert;
+    }
+
+    if (wireformat == NETMD_WIREFORMAT_AT1)
+    {
+        wireformat = g_wireFormat;
     }
 
     /* send to device */
