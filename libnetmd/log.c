@@ -28,6 +28,17 @@
 #include "log.h"
 
 static netmd_loglevel trace_level = 0;
+static FILE* fd_log = NULL;
+
+/**
+ * @brief      Sets the log file descriptor
+ *
+ * @param[in]  fdid  se fdid as stdout
+ */
+void netmd_log_set_fd(FILE* fdid)
+{
+    fd_log = fdid;
+}
 
 void netmd_set_log_level(netmd_loglevel level)
 {
@@ -41,50 +52,54 @@ void netmd_log_hex(netmd_loglevel level, const unsigned char* const buf, const s
     size_t j = 0;
     int breakpoint = 0;
 
+    if (!fd_log)
+        fd_log = stdout;
+
     if (level > trace_level) {
         return;
     }
 
     for (i = 0; i < len; i++)
     {
-        printf("%02x ", buf[i] & 0xff);
+        fprintf(fd_log, "%02x ", buf[i] & 0xff);
         breakpoint++;
         if(!((i + 1)%16) && i)
         {
-            printf("\t\t");
+            fprintf(fd_log, "\t\t");
             for(j = ((i+1) - 16); j < ((i+1)/16) * 16; j++)
             {
                 if(buf[j] < 30)
-                    printf(".");
+                    fprintf(fd_log, ".");
                 else
-                    printf("%c", buf[j]);
+                    fprintf(fd_log, "%c", buf[j]);
             }
-            printf("\n");
+            fprintf(fd_log, "\n");
             breakpoint = 0;
         }
     }
 
     if(breakpoint == 16)
     {
-        printf("\n");
+        fprintf(fd_log, "\n");
+        fflush(fd_log);
         return;
     }
 
     for(; breakpoint < 16; breakpoint++)
     {
-        printf("   ");
+        fprintf(fd_log, "   ");
     }
-    printf("\t\t");
+    fprintf(fd_log, "\t\t");
 
     for(j = len - (len%16); j < len; j++)
     {
         if(buf[j] < 30)
-            printf(".");
+            fprintf(fd_log, ".");
         else
-            printf("%c", buf[j]);
+            fprintf(fd_log, "%c", buf[j]);
     }
-    printf("\n");
-    fflush(stdout);
+    fprintf(fd_log, "\n");
+    fflush(fd_log);
 }
 
 
@@ -92,12 +107,15 @@ void netmd_log(netmd_loglevel level, const char* const fmt, ...)
 {
     va_list arg;
 
+    if (!fd_log)
+        fd_log = stdout;
+
     if (level > trace_level) {
         return;
     }
 
     va_start(arg, fmt);
-    vprintf(fmt, arg);
+    vfprintf(fd_log, fmt, arg);
     va_end(arg);
-    fflush(stdout);
+    fflush(fd_log);
 }

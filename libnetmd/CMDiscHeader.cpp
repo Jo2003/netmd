@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cstring>
 #include <regex>
+#include <sstream>
 #include "CMDiscHeader.h"
 
 //-----------------------------------------------------------------------------
@@ -295,35 +296,38 @@ int CMDiscHeader::addGroup(const std::string& name, int16_t first, int16_t last)
 //-----------------------------------------------------------------------------
 void CMDiscHeader::listGroups() const
 {
+    std::ostringstream oss;
     for (const auto& g : mGroups)
     {
-        std::cout << "Group " << g.mGid;
+        oss.clear();
+        oss.str("");
+        oss << "Group " << g.mGid;
 
         if (g.mName.empty())
         {
-            std::cout << " <untitled>";
+            oss << " <untitled>";
         }
         else
         {
-            std::cout << " '" << g.mName << "'";
+            oss << " '" << g.mName << "'";
         }
 
         if (g.mFirst == 0)
         {
-            std::cout << ", disc title";
+            oss << ", disc title";
         }
         
         if (g.mFirst > 0)
         {
-            std::cout << ", track(s) " << g.mFirst;
+            oss << ", track(s) " << g.mFirst;
         }
         
         if (g.mLast != -1)
         {
-            std::cout << " - " << g.mLast;
+            oss << " - " << g.mLast;
         }
 
-        std::cout << std::endl;
+        netmd_log(NETMD_LOG_ERROR, "%s\n", oss.str().c_str());
     }
 }
 

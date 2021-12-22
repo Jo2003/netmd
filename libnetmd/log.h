@@ -1,6 +1,8 @@
 #ifndef LIBNETMD_TRACE_H
 #define LIBNETMD_TRACE_H
 
+#include <stdio.h>
+
 /**
    log level
 */
@@ -50,5 +52,12 @@ void netmd_log_hex(netmd_loglevel level, const unsigned char* const data, const 
    @param fmt printf-like format string
 */
 void netmd_log(netmd_loglevel level, const char* const fmt, ...);
+
+/**
+ * @brief      Sets the log file descriptor
+ *
+ * @param[in]  fdid  se fdid as stdout
+ */
+void netmd_log_set_fd(FILE* fdid);
 
 #endif
