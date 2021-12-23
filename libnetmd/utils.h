@@ -13,9 +13,10 @@ typedef struct {
         size_t position;
 } netmd_response;
 
-#ifndef min
-    #define min(a,b) ((a)<(b)?(a):(b))
+#ifndef netmd_min
+    #define netmd_min(a,b) ((a)<(b)?(a):(b))
 #endif
+
 
 #ifdef WIN32
     #include <windows.h>

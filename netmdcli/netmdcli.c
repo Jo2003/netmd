@@ -295,7 +295,6 @@ void print_disc_info(netmd_dev_handle* devh, HndMdHdr md)
     uint16_t i = 0;
     int16_t group = 0, lastgroup = 9858;
     const char* group_name;
-    char* last_group_name = NULL;
     unsigned char bitrate_id;
     unsigned char flags;
     unsigned char channel;
@@ -1030,7 +1029,6 @@ int run_me(int argc, char* argv[])
     long unsigned int j = 0;
     char name[16];
     uint16_t track, playmode;
-    int c;
     netmd_time time;
     netmd_error error;
     FILE *f;
@@ -1040,22 +1038,23 @@ int run_me(int argc, char* argv[])
     /* by default, log only errors */
     netmd_set_log_level(NETMD_LOG_ERROR);
 
-    /* parse options */
-    while (1) {
-        c = getopt(argc, argv, "tvd:");
-        if (c == -1) {
-            break;
-        }
-        switch (c) {
-        case 't':
-            netmd_set_log_level(NETMD_LOG_ALL);
-            break;
-        case 'v':
-            netmd_set_log_level(NETMD_LOG_VERBOSE);
-            break;
-        case 'd':
-            if (optarg)
+    /* parse parameters */
+    {
+        int c;
+        opterr = 0;
+        optind = 1;
+
+        while ((c = getopt (argc, argv, "tvd:")) != -1)
+        {
+            switch (c)
             {
+            case 't':
+                netmd_set_log_level(NETMD_LOG_ALL);
+                break;
+            case 'v':
+                netmd_set_log_level(NETMD_LOG_VERBOSE);
+                break;
+            case 'd':
                 if (!strcmp(optarg, "lp2"))
                 {
                     onTheFlyConvert = NETMD_DISKFORMAT_LP2;
@@ -1064,11 +1063,24 @@ int run_me(int argc, char* argv[])
                 {
                     onTheFlyConvert = NETMD_DISKFORMAT_LP4;
                 }
+                break;
+            case '?':
+                if (optopt == 'd')
+                {
+                    netmd_log(NETMD_LOG_ERROR, "Option -%c requires an argument.\n", optopt);
+                }
+                else if (isprint (optopt))
+                {
+                    netmd_log(NETMD_LOG_ERROR, "Unknown option `-%c'.\n", optopt);
+                }
+                else
+                {
+                    netmd_log(NETMD_LOG_ERROR, "Unknown option character `\\x%x'.\n", optopt);
+                }
+            // fall through
+            default:
+                return 1;
             }
-            break;
-        default:
-            fprintf(stderr, "Unknown option '%c'\n", c);
-            break;
         }
     }
 
@@ -1415,6 +1427,11 @@ int run_me(int argc, char* argv[])
     netmd_clean(&device_list);
 
     return exit_code;
+}
+
+void netmd_cli_set_log_fd(FILE* fd)
+{
+    netmd_log_set_fd(fd);
 }
 
 #ifndef NO_PROGRAM

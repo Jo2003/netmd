@@ -78,7 +78,7 @@ static unsigned char* sendcommand(netmd_dev_handle* devh, unsigned char* str, co
     /* Calculate difference to expected response */
     if (response != NULL) {
         int c=0;
-        for (i=0; i < min(rlen, size); i++) {
+        for (i=0; i < netmd_min(rlen, size); i++) {
             if (response[i] != buf[i]) {
                 c++;
             }
@@ -131,7 +131,6 @@ static int request_disc_title(netmd_dev_handle* dev, char* buffer, size_t size)
 static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
 {
     int ret = -1;
-    size_t title_size = 0;
     uint16_t total = 1, remaining = 0, read = 0, chunkSz = 0;
     unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
 
@@ -488,7 +487,7 @@ int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
 
     printf("...OK\n");
     header_size = strlen(header);
-    printf("Header size: %d\n", header_size);
+    printf("Header size: %llu\n", header_size);
 
     request_size = header_size + sizeof(write_req);
     request = malloc(request_size);
@@ -771,12 +770,11 @@ int netmd_sync_toc(netmd_dev_handle* dev)
 /* Calls need for Sharp devices */
 int netmd_acquire_dev(netmd_dev_handle* dev)
 {
-    int ret = 0;
     unsigned char request[] = {0x00, 0xff, 0x01, 0x0c, 0xff, 0xff, 0xff, 0xff,
                                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     unsigned char reply[255];
 
-    ret = netmd_exch_message(dev, request, sizeof(request), reply);
+    netmd_exch_message(dev, request, sizeof(request), reply);
     if (reply[0] == NETMD_STATUS_ACCEPTED){
       return NETMD_NO_ERROR;
     } else {

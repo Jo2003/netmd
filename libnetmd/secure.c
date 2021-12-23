@@ -367,7 +367,7 @@ void netmd_transfer_song_packets(netmd_dev_handle *dev,
     netmd_track_packets *p;
     unsigned char *packet, *buf;
     size_t packet_size, total_transferred = 0, display_length = full_length + 24;
-    int error;
+    int error = 0;
     int transferred = 0;
     int first_packet = 1;
     time_t start_time = time(NULL), duration;
@@ -628,7 +628,8 @@ netmd_error netmd_secure_send_track(netmd_dev_handle *dev,
 
 netmd_error netmd_secure_real_recv_track(netmd_dev_handle *dev, uint32_t length, FILE *file, size_t chunksize)
 {
-    uint32_t done = 0, transferred = 0;
+    uint32_t done = 0;
+    int32_t transferred = 0;
     unsigned char *data;
     int status;
     netmd_error error = NETMD_NO_ERROR;

@@ -23,5 +23,12 @@
 #include "../libnetmd/libnetmd.h"
 #include "../libnetmd/utils.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void netmd_cli_set_json_fd(FILE* fd);
+void netmd_cli_set_log_fd(FILE* fd);
 int run_me(int argc, char* argv[]);
+#ifdef __cplusplus
+}
+#endif
