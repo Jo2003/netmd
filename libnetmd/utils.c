@@ -22,6 +22,7 @@
  */
 
 #include <string.h>
+
 #include "utils.h"
 #include "log.h"
 
@@ -334,81 +335,4 @@ uint16_t netmd_ntohs(uint16_t in)
 {
     // same same and not different ...
     return netmd_htons(in);
-}
-
-//------------------------------------------------------------------------------
-//! @brief      iconvert a c string
-//!
-//! @param[in]  cd         conversion descriptor
-//! @param[in]  in         c string to convert
-//! @param      out        converted string (must be freed)
-//!
-//! @return     0 -> ok; else -> error
-//------------------------------------------------------------------------------
-static int str_iconv(iconv_t cd, ICONV_CONST char *in, char **out)
-{
-    size_t inlen, outlen;
-    int buflen, rc;
-    int len;                    /* number of chars in buffer */
-    char *buf;
-
-    inlen = strlen(in);
-    buflen = 0;
-    buf = NULL;
-    do {
-        outlen = inlen * 2;
-        buflen += outlen;
-        /* iconv() below changes the buf pointer:
-         * - decrement to point at beginning of buffer before realloc
-         * - re-increment to point at first free position after realloc
-         */
-        len = buflen - outlen;
-        buf = (char*)realloc(buf - len, buflen) + len;
-        if (buf == NULL) {
-            /* XXX: report out of memory error */
-            return FALSE;
-        }
-        rc = iconv(cd, &in, &inlen, &buf, &outlen);
-        if ((rc == -1) && (errno != E2BIG)) {
-            free(buf);
-            return FALSE;       /* conversion failed */
-        }
-    } while (inlen != 0);
-    len = buflen - outlen;
-    buf -= len;                 /* reposition at begin of buffer */
-    /* make a copy just big enough for the result */
-    *out = malloc(len + 1);
-    memcpy(*out, buf, len);
-    *(*out + len) = '\0';
-    free(buf);
-
-    return TRUE;
-}
-
-//------------------------------------------------------------------------------
-//! @brief      convert from utf8 to shift-jis
-//!
-//! @param[in]  in   c string to convert
-//! @param      out  converted c string (need free)
-//!
-//! @return     0 -> ok; else -> error
-//------------------------------------------------------------------------------
-int utf8_to_shjis(ICONV_CONST char *in, char **out)
-{
-    iconv_t icv = iconv_open("SHIFT-JIS//IGNORE", "UTF-8");
-    return str_iconv(icv, in, out);
-}
-
-//------------------------------------------------------------------------------
-//! @brief      convert from shift-jis to utf8
-//!
-//! @param[in]  in   c string to convert
-//! @param      out  converted c string (need free)
-//!
-//! @return     0 -> ok; else -> error
-//------------------------------------------------------------------------------
-int shjis_to_utf8(ICONV_CONST char *in, char **out)
-{
-    iconv_t icv = iconv_open("UTF-8", "SHIFT-JIS");
-    return str_iconv(icv, in, out);
 }

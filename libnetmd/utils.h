@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
-#include <iconv.h>
 
 #include "error.h"
 
@@ -18,9 +17,6 @@ typedef struct {
     #define netmd_min(a,b) ((a)<(b)?(a):(b))
 #endif
 
-#ifndef ICONV_CONST
-    #define ICONV_CONST
-#endif
 
 #ifdef WIN32
     #include <windows.h>
@@ -74,25 +70,5 @@ uint16_t netmd_htons(uint16_t in);
 //! @return     converted or original value
 //------------------------------------------------------------------------------
 uint16_t netmd_ntohs(uint16_t in);
-
-//------------------------------------------------------------------------------
-//! @brief      convert from utf8 to shift-jis
-//!
-//! @param[in]  in   c string to convert
-//! @param      out  converted c string (need free)
-//!
-//! @return     0 -> ok; else -> error
-//------------------------------------------------------------------------------
-int utf8_to_shjis(ICONV_CONST char *in, char **out);
-
-//------------------------------------------------------------------------------
-//! @brief      convert from shift-jis to utf8
-//!
-//! @param[in]  in   c string to convert
-//! @param      out  converted c string (need free)
-//!
-//! @return     0 -> ok; else -> error
-//------------------------------------------------------------------------------
-int shjis_to_utf8(ICONV_CONST char *in, char **out);
 
 #endif

@@ -70,7 +70,7 @@ int CMDiscHeader::fromString(const std::string& header)
 {
     int ret;
     constexpr int GROUP_TRACKS = 1;
-    constexpr int GROUP_TITLE  = 2;
+    constexpr int GROUP_NAME   = 2;
 
     mGroups.clear();
 
@@ -107,13 +107,13 @@ int CMDiscHeader::fromString(const std::string& header)
                 if (numb == "0")
                 {
                     // disc title ...
-                    mGroups[0].mName = match[GROUP_TITLE].str();
+                    mGroups[0].mName = match[GROUP_NAME].str();
                 }
                 else
                 {
                     group.mFirst = -1;
                     group.mLast  = -1;
-                    group.mName  = match[GROUP_TITLE].str();
+                    group.mName  = match[GROUP_NAME].str();
 
                     if ((dash = numb.find('-')) != std::string::npos)
                     {

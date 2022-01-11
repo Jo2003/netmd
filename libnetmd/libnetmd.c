@@ -385,7 +385,7 @@ int netmd_set_disc_title(netmd_dev_handle* dev, char* title, size_t title_length
     int oldsize;
 
     /* the title update command wants to now how many bytes to replace */
-    oldsize = request_disc_title(dev, (char*)reply, sizeof(reply));
+    oldsize = request_disc_title(dev, (char *)reply, sizeof(reply));
     if(oldsize == -1)
         oldsize = 0; /* Reading failed -> no title at all, replace 0 bytes */
 
@@ -497,7 +497,7 @@ int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
 
     memcpy(request + sizeof(write_req), header, header_size);
     ret = netmd_exch_message(devh, request, request_size, reply);
-    netmd_exch_message(devh, hs2, 8, reply);
+    netmd_exch_message(devh, hs4, 8, reply);
     free(request);
 
     return ret;

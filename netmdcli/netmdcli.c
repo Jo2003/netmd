@@ -1035,13 +1035,6 @@ int run_me(int argc, char* argv[])
     int exit_code = 0;
     unsigned char onTheFlyConvert = NO_ONTHEFLY_CONVERSION;
 
-    netmd_set_log_level(NETMD_LOG_ALL);
-    netmd_log(NETMD_LOG_DEBUG, "Command line args:");
-    for (int i = 0; i < argc; i++)
-    {
-        netmd_log_hex(NETMD_LOG_DEBUG, (unsigned char*)argv[i], strlen(argv[i]));
-    }
-
     /* by default, log only errors */
     netmd_set_log_level(NETMD_LOG_ERROR);
 
@@ -1200,8 +1193,6 @@ int run_me(int argc, char* argv[])
         else if(strcmp("rename_disc", argv[1]) == 0)
         {
             if (!check_args(argc, 2, "rename_disc")) return -1;
-            netmd_log(NETMD_LOG_DEBUG, "Rename disc to:");
-            netmd_log_hex(NETMD_LOG_DEBUG, (unsigned char*)argv[2], strlen(argv[2]));
             if (md_header_set_disc_title(md, argv[2]) == 0)
             {
                 netmd_write_disc_header(devh, md);
