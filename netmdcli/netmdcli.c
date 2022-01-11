@@ -1193,6 +1193,7 @@ int run_me(int argc, char* argv[])
         else if(strcmp("rename_disc", argv[1]) == 0)
         {
             if (!check_args(argc, 2, "rename_disc")) return -1;
+            netmd_log_hex(NETMD_LOG_DEBUG, argv[2], strlen(argv[2]));
             if (md_header_set_disc_title(md, argv[2]) == 0)
             {
                 netmd_write_disc_header(devh, md);

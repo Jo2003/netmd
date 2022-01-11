@@ -132,7 +132,7 @@ static int request_disc_title_ex(netmd_dev_handle* dev, char** buffer)
 {
     int ret = -1;
     uint16_t total = 1, remaining = 0, read = 0, chunkSz = 0;
-    unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
+    unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x10, 0x01, 0x01, 0x00};
 
 
     unsigned char title_request[] = {0x00, 0x18, 0x06, 0x02, 0x20, 0x18,
@@ -380,13 +380,12 @@ int netmd_set_disc_title(netmd_dev_handle* dev, char* title, size_t title_length
     unsigned char hs1[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
     unsigned char hs2[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
     unsigned char hs3[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x03, 0x00};
-    unsigned char hs4[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
     unsigned char reply[256];
     int result;
     int oldsize;
 
     /* the title update command wants to now how many bytes to replace */
-    oldsize = request_disc_title(dev, (char *)reply, sizeof(reply));
+    oldsize = request_disc_title(dev, (char*)reply, sizeof(reply));
     if(oldsize == -1)
         oldsize = 0; /* Reading failed -> no title at all, replace 0 bytes */
 
@@ -406,7 +405,7 @@ int netmd_set_disc_title(netmd_dev_handle* dev, char* title, size_t title_length
     netmd_exch_message(dev, hs3, sizeof(hs3), reply);
     result = netmd_exch_message(dev, request, 0x15 + title_length, reply);
     /* send handshake to write */
-    netmd_exch_message(dev, hs4, sizeof(hs4), reply);
+    netmd_exch_message(dev, hs2, sizeof(hs2), reply);
     return result;
 }
 
@@ -470,7 +469,6 @@ int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
     unsigned char hs[]  = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x01, 0x00};
     unsigned char hs2[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
     unsigned char hs3[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x03, 0x00};
-    unsigned char hs4[] = {0x00, 0x18, 0x08, 0x10, 0x18, 0x01, 0x00, 0x00};
 
 
 
@@ -499,7 +497,7 @@ int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
 
     memcpy(request + sizeof(write_req), header, header_size);
     ret = netmd_exch_message(devh, request, request_size, reply);
-    netmd_exch_message(devh, hs4, 8, reply);
+    netmd_exch_message(devh, hs2, 8, reply);
     free(request);
 
     return ret;
