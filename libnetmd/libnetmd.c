@@ -497,7 +497,7 @@ int netmd_write_disc_header(netmd_dev_handle* devh, HndMdHdr md)
 
     memcpy(request + sizeof(write_req), header, header_size);
     ret = netmd_exch_message(devh, request, request_size, reply);
-    netmd_exch_message(devh, hs4, 8, reply);
+    netmd_exch_message(devh, hs2, 8, reply);
     free(request);
 
     return ret;
