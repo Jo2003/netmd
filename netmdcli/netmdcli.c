@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
+#include <stdio.h>
 #include <gcrypt.h>
 #include <getopt.h>
 #include <json-c/json.h>
@@ -385,6 +386,14 @@ void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdH
     if (netmd_request_track_count(devh, &tc) == 0)
     {
         json_object_object_add(json, "trk_count",  json_object_new_int(tc));
+    }
+
+    uint8_t disc_flags = 0;
+    if (netmd_request_disc_flags(devh, &disc_flags) == 0)
+    {
+        char hex[5] = {'\0'};
+        snprintf(hex, 5, "0x%.02x", disc_flags);
+        json_object_object_add(json, "disc_flags", json_object_new_string(hex));
     }
 
     netmd_disc_capacity capacity;

@@ -840,3 +840,35 @@ int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount)
 
     return ret;
 }
+
+//------------------------------------------------------------------------------
+//! @brief      get disc flags 
+//!
+//! @param      dev    The dev
+//! @param      flags  buffer for the flags
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_request_disc_flags(netmd_dev_handle* dev, uint8_t* flags)
+{
+    unsigned char req[] = {0x00, 0x18, 0x06, 0x01, 0x10, 0x10, 
+                           0x00, 0xff, 0x00, 0x00, 0x01, 0x00,  
+                           0x0b};
+    
+    unsigned char reply[255];
+
+    int ret = netmd_exch_message(dev, req, 13, reply);
+
+    if (ret > 0)
+    {
+        // last byte contains the disc flags
+        *flags = reply[ret - 1];
+        ret = 0;
+    }
+    else
+    {
+        ret = -1;
+    }
+
+    return ret;
+}

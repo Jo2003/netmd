@@ -257,3 +257,13 @@ int netmd_request_raw_header_ex(netmd_dev_handle* dev, char** buffer);
 //! @return     0 -> ok; -1 -> error
 //------------------------------------------------------------------------------
 int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount);
+
+//------------------------------------------------------------------------------
+//! @brief      get disc flags 
+//!
+//! @param      dev    The dev
+//! @param      flags  buffer for the flags
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_request_disc_flags(netmd_dev_handle* dev, uint8_t* flags);
