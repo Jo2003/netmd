@@ -202,6 +202,9 @@ static size_t wav_data_position(const unsigned char * data, size_t offset, size_
 {
     size_t i = offset, pos = 0;
 
+    if (offset == 2048)
+        return offset;
+
     while (i < len - 4) {
         if(strncmp("data", (const char*)data+i, 4) == 0) {
             pos = i;
@@ -215,6 +218,18 @@ static size_t wav_data_position(const unsigned char * data, size_t offset, size_
 
 static int audio_supported(const unsigned char * file, netmd_wireformat * wireformat, unsigned char * diskformat, int * conversion, size_t * channels, size_t * headersize)
 {
+    // try to find atrac1 header ...
+    if ((file[1] == 0x08) && (strncmp("test", (const char*)file + 4, 4) == 0))
+    {
+        *wireformat = NETMD_WIREFORMAT_AT1;
+        *diskformat = NETMD_DISKFORMAT_SP_STEREO;
+        *channels   = NETMD_CHANNELS_STEREO;
+        *conversion = 0;
+        *headersize = 2048;
+        printf("ATRAC1 file recognized!\n");
+        return 1;
+    }
+    
     if(strncmp("RIFF", (const char*)file, 4) != 0 || strncmp("WAVE", (const char*)file+8, 4) != 0 || strncmp("fmt ", (const char*)file+12, 4) != 0)
         return 0;                                             /* no valid WAV file or fmt chunk missing*/
 
@@ -803,6 +818,13 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
 
             return NETMD_ERROR;
         }
+        else if (wireformat == NETMD_WIREFORMAT_AT1) {
+            netmd_log(NETMD_LOG_VERBOSE, "Atrac 1 data found at %d\n", data_position);
+            audio_data_position = data_position;
+            audio_data          = data + audio_data_position;
+            audio_data_size     = data_size - audio_data_position;
+            netmd_log(NETMD_LOG_VERBOSE, "audio data size read from file :           %d bytes\n", audio_data_size);
+        }
         else {
             netmd_log(NETMD_LOG_VERBOSE, "data chunk position at %d\n", data_position);
             audio_data_position = data_position + 8;
@@ -1044,6 +1066,8 @@ int run_me(int argc, char* argv[])
     int exit_code = 0;
     unsigned char onTheFlyConvert = NO_ONTHEFLY_CONVERSION;
 
+    g_wireFormat = 0x00;
+
     /* by default, log only errors */
     netmd_set_log_level(NETMD_LOG_ERROR);
 
@@ -1052,8 +1076,9 @@ int run_me(int argc, char* argv[])
         int c;
         opterr = 0;
         optind = 1;
+        optopt = 0;
 
-        while ((c = getopt (argc, argv, "tvd:")) != -1)
+        while ((c = getopt (argc, argv, "tvd:f:")) != -1)
         {
             switch (c)
             {
@@ -1073,8 +1098,15 @@ int run_me(int argc, char* argv[])
                     onTheFlyConvert = NETMD_DISKFORMAT_LP4;
                 }
                 break;
+            case 'f':
+                if (optarg)
+                {
+                    g_wireFormat = strtoul(optarg, NULL, 0);
+                    netmd_log(NETMD_LOG_DEBUG, "Using Wireformat 0x%.02x on transfer...\n", g_wireFormat);
+                }
+                break;
             case '?':
-                if (optopt == 'd')
+                if ((optopt == 'd') || (optopt == 'f'))
                 {
                     netmd_log(NETMD_LOG_ERROR, "Option -%c requires an argument.\n", optopt);
                 }

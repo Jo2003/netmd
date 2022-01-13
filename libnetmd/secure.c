@@ -41,6 +41,8 @@
 #include "log.h"
 #include "trackinformation.h"
 
+unsigned char g_wireFormat = 0xff;
+
 
 static const unsigned char secure_header[] = { 0x18, 0x00, 0x08, 0x00, 0x46,
                                                0xf0, 0x03, 0x01, 0x03 };
@@ -348,13 +350,15 @@ size_t netmd_get_frame_size(netmd_wireformat wireformat)
 
     case NETMD_WIREFORMAT_LP2:
         return 192;
-        break;
 
     case NETMD_WIREFORMAT_105KBPS:
         return 152;
 
     case NETMD_WIREFORMAT_LP4:
         return 96;
+
+    case NETMD_WIREFORMAT_AT1:
+        return 424;
     }
 
     return 0;
@@ -586,7 +590,15 @@ netmd_error netmd_secure_send_track(netmd_dev_handle *dev,
     buf = cmd + sizeof(cmdhdr);
     netmd_copy_word_to_buffer(&buf, 0xffffU, 0);
     *(buf++) = 0;
-    *(buf++) = wireformat & 0xffU;
+    if ((wireformat == NETMD_WIREFORMAT_AT1) && (g_wireFormat != 0x00))
+    {
+        *(buf++) = g_wireFormat & 0xffU;
+    }
+    else
+    {
+        *(buf++) = wireformat & 0xffU;
+    }
+    
     *(buf++) = discformat & 0xffU;
     netmd_copy_doubleword_to_buffer(&buf, frames, 0);
 

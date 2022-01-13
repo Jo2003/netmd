@@ -7,6 +7,8 @@
 #include "common.h"
 #include "error.h"
 
+extern unsigned char g_wireFormat;
+
 /**
    linked list to store a list of 16-byte keys
 */
@@ -65,7 +67,8 @@ typedef enum {
     NETMD_WIREFORMAT_PCM = 0,
     NETMD_WIREFORMAT_105KBPS = 0x90,
     NETMD_WIREFORMAT_LP2 = 0x94,
-    NETMD_WIREFORMAT_LP4 = 0xa8
+    NETMD_WIREFORMAT_LP4 = 0xa8,
+    NETMD_WIREFORMAT_AT1 = 1
 } netmd_wireformat;
 
 /**
