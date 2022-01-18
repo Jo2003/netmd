@@ -24,6 +24,7 @@
 #include <getopt.h>
 #include <json-c/json.h>
 #include <json-c/json_object.h>
+#include <ctype.h>
 #include "netmdcli.h"
 
 #define NO_ONTHEFLY_CONVERSION 0xf
@@ -470,7 +471,7 @@ void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdH
     if (json_fd == NULL)
         json_fd = stdout;
 
-    fprintf(json_fd, json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    fputs(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE), json_fd);
     fflush(json_fd);
 
     // Clean up JSON object
@@ -608,7 +609,7 @@ void print_json_disc_info(netmd_device* dev, netmd_dev_handle* devh, HndMdHdr md
     if (json_fd == NULL)
         json_fd = stdout;
 
-    fprintf(json_fd, json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    fputs(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE), json_fd);
     fflush(json_fd);
 
     // Clean up JSON object
