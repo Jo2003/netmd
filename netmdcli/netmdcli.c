@@ -471,7 +471,13 @@ void print_json_disc_info_gui(netmd_device* dev,  netmd_dev_handle* devh, HndMdH
     if (json_fd == NULL)
         json_fd = stdout;
 
-    fputs(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE), json_fd);
+    int expflags = JSON_C_TO_STRING_PRETTY;
+
+#ifdef JSON_C_TO_STRING_NOSLASHESCAPE
+    expflags |= JSON_C_TO_STRING_NOSLASHESCAPE;
+#endif
+
+    fputs(json_object_to_json_string_ext(json, expflags), json_fd);
     fflush(json_fd);
 
     // Clean up JSON object
@@ -609,7 +615,13 @@ void print_json_disc_info(netmd_device* dev, netmd_dev_handle* devh, HndMdHdr md
     if (json_fd == NULL)
         json_fd = stdout;
 
-    fputs(json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE), json_fd);
+    int expflags = JSON_C_TO_STRING_PRETTY;
+
+#ifdef JSON_C_TO_STRING_NOSLASHESCAPE
+    expflags |= JSON_C_TO_STRING_NOSLASHESCAPE;
+#endif
+
+    fputs(json_object_to_json_string_ext(json, expflags), json_fd);
     fflush(json_fd);
 
     // Clean up JSON object
