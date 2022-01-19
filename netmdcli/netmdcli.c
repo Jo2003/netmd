@@ -156,7 +156,7 @@ static void send_raw_message(netmd_dev_handle* devh, char *pszRaw)
 struct json_object* json_time(const netmd_time *time)
 {
     char buffer[12];
-    sprintf(buffer, "%.02d:%.02d:%.02d.%.02d", time->hour, time->minute, time->second, time->frame);
+    sprintf(buffer, "%02d:%02d:%02d.%02d", (uint8_t)time->hour, time->minute, time->second, time->frame);
     return json_object_new_string(buffer);
 }
 
