@@ -43,6 +43,7 @@
 #include "netmd_dev.h"
 #include "trackinformation.h"
 #include "CMDiscHeader.h"
+#include "patch.h"
 
 /**
    Data about a group, start track, finish track and name. Used to generate disc

@@ -1,0 +1,636 @@
+/**
+ * Copyright (C) 2023 Jo2003 (olenka.joerg@gmail.com)
+ * This file is part of netmd
+ *
+ * cd2netmd is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * cd2netmd is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ */
+#include <stdio.h>
+#include <assert.h>
+#include "patch.h"
+#include "utils.h"
+#include "log.h"
+
+// defines
+#define PERIPHERAL_BASE 0x03802000ul
+#define MAX_PATCH 8
+
+// types
+
+//! @brief supported firmware on Sony devices
+typedef enum
+{
+    SDI_UNKNOWN,    //!< unsupported or unknown
+    SDI_S1200,      //!< S1.200 version
+    SDI_S1600       //!< S1.600 version
+} sony_dev_info_t;
+
+//! @brief patch id
+typedef enum
+{
+    PID_UNKNOWN,
+    PID_DEVTYPE,
+    PID_PATCH_0_A,
+    PID_PATCH_0_B,
+    PID_PATCH_0,
+    PID_PREP_PATCH,
+    PID_PATCH_CMN_1,
+    PID_PATCH_CMN_2,
+    PID_TRACK_TYPE,
+} patch_id_t;
+
+//! @brief memory device open types
+typedef enum
+{
+    NETMD_MEM_CLOSE      = 0x0,
+    NETMD_MEM_READ       = 0x1,
+    NETMD_MEM_WRITE      = 0x2,
+    NETMD_MEM_READ_WRITE = 0x3,
+} netmd_memory_open_t;
+
+//! @brief patch address for one device
+typedef struct
+{
+    sony_dev_info_t devinfo;
+    uint32_t addr;
+} patch_addr_t;
+
+//! @brief patch address table entry (used in array / table)
+typedef struct
+{
+    patch_id_t pid;
+    int addr_count;
+    patch_addr_t addrs[2];
+} patch_addr_entry_t;
+
+//! @brief patch payload for one device
+typedef struct
+{
+    sony_dev_info_t devinfo;
+    uint8_t payload[4];
+} patch_payload_t;
+
+//! @brief patch payload table entry (used in array / table)
+typedef struct
+{
+    patch_id_t pid;
+    int patch_count;
+    patch_payload_t patch[2];
+} patch_payload_entry_t;
+
+// static values
+
+//! @brief patch address table
+static patch_addr_entry_t patch_addr_tab[] = {
+    {PID_DEVTYPE    , 1, {{SDI_S1600, 0x02003fcf},{SDI_S1200, 0x00      }}},
+    {PID_PATCH_0_A  , 1, {{SDI_S1600, 0x0007f408},{SDI_S1200, 0x00      }}},
+    {PID_PATCH_0_B  , 2, {{SDI_S1600, 0x0007efec},{SDI_S1200, 0x00078dcc}}},
+    {PID_PREP_PATCH , 2, {{SDI_S1600, 0x00077c04},{SDI_S1200, 0x00071e5c}}},
+    {PID_PATCH_CMN_1, 2, {{SDI_S1600, 0x0007f4e8},{SDI_S1200, 0x00078eac}}},
+    {PID_PATCH_CMN_2, 2, {{SDI_S1600, 0x0007f4ec},{SDI_S1200, 0x00078eb0}}},
+    {PID_TRACK_TYPE , 2, {{SDI_S1600, 0x000852b0},{SDI_S1200, 0x0007ea9c}}},
+};
+//! @brief patch address table size
+static const size_t patch_addr_tab_size = sizeof(patch_addr_tab) / sizeof(patch_addr_tab[0]);
+
+//! @brief patch payload table
+static patch_payload_entry_t patch_payload_tab[] = {
+    {PID_PATCH_0    , 2, {{SDI_S1200, {0x00,0x00,0xa0,0xe1}}, {SDI_S1600, {0x00,0x00,0xa0,0xe1}}}},
+    {PID_PREP_PATCH , 2, {{SDI_S1200, {0x0D,0x31,0x01,0x60}}, {SDI_S1600, {0x0D,0x31,0x01,0x60}}}},
+    {PID_PATCH_CMN_1, 2, {{SDI_S1200, {0x14,0x80,0x80,0x03}}, {SDI_S1600, {0x14,0x80,0x80,0x03}}}},
+    {PID_PATCH_CMN_2, 2, {{SDI_S1200, {0x14,0x90,0x80,0x03}}, {SDI_S1600, {0x14,0x90,0x80,0x03}}}},
+    {PID_TRACK_TYPE , 2, {{SDI_S1200, {0x06,0x02,0x00,0x04}}, {SDI_S1600, {0x06,0x02,0x00,0x04}}}},
+};
+//! @brief patch payload table size
+static const size_t patch_payload_tab_size = sizeof(patch_payload_tab) / sizeof(patch_payload_tab[0]);
+
+// internal functions
+
+//------------------------------------------------------------------------------
+//! @brief      get patch address by name and device info
+//!
+//! @param[in]  devinfo    device info
+//! @param[in]  pid        patch id
+//!
+//! @return     0 -> error | > 0 -> address
+//------------------------------------------------------------------------------
+static uint32_t get_patch_address(sony_dev_info_t devinfo, patch_id_t pid)
+{
+    for(size_t i = 0; i < patch_addr_tab_size; i++)
+    {
+        if (patch_addr_tab[i].pid == pid)
+        {
+            for (int j = 0; j < patch_addr_tab[i].addr_count; j++)
+            {
+                if (patch_addr_tab[i].addrs[j].devinfo == devinfo)
+                {
+                    return patch_addr_tab[i].addrs[j].addr;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      get patch payload by name and device info
+//!
+//! @param[in]  devinfo    device info
+//! @param[in]  pid        patch id
+//!
+//! @return     NULL -> error; else -> patch content
+//------------------------------------------------------------------------------
+static uint8_t* get_patch_payload(sony_dev_info_t devinfo, patch_id_t pid)
+{
+    for(size_t i = 0; i < patch_payload_tab_size; i++)
+    {
+        if (patch_payload_tab[i].pid == pid)
+        {
+            for (int j = 0; j < patch_payload_tab[i].patch_count; j++)
+            {
+                if (patch_payload_tab[i].patch[j].devinfo == devinfo)
+                {
+                    return patch_payload_tab[i].patch[j].payload;
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      write patch data
+//!
+//! @param[in]  devh      device handle
+//! @param[in]  addr      address
+//! @param[in]  data      data to write
+//! @param[in]  data_size size of data
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+static netmd_error patch_write(netmd_dev_handle *devh, uint32_t addr, uint8_t data[], size_t data_size)
+{
+    netmd_error ret = NETMD_ERROR;
+    size_t query_sz = 0;
+    netmd_query_data_t argv[] = {
+        {{.u32 = addr                                     }, sizeof(uint32_t)},
+        {{.u8  = data_size                                }, sizeof(uint8_t) },
+        {{.pu8 = data                                     }, data_size       },
+        {{.u16 = netmd_calculate_checksum(data, data_size)}, sizeof(uint16_t)},
+    };
+
+    int argc = sizeof(argv) / sizeof(argv[0]);
+
+    uint8_t* query = netmd_format_query("1822 ff 00 %<d %b 0000 %* %<w", argv, argc, &query_sz);
+    if (query != NULL)
+    {
+        // send ...
+        ret = netmd_send_message(devh, query, query_sz);
+
+        // free memory
+        free(query);
+    }
+
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      read patch data
+//!
+//! @param[in]  devh       device handle
+//! @param[in]  addr       address
+//! @param[in]  data_size  size of data to read
+//! @param[out] reply_size buffer for reply size
+//!
+//! @return     NULL -> error; else -> reply
+//------------------------------------------------------------------------------
+static uint8_t* patch_read(netmd_dev_handle *devh, uint32_t addr, size_t data_size, size_t* reply_size)
+{
+    uint8_t *reply  = NULL;
+    int reply_sz    = 0;
+    size_t query_sz = 0;
+    netmd_capture_data_t* cap_argv = NULL;
+    int                   cap_argc = 0;
+
+    netmd_query_data_t argv[] = {
+        {{.u32 = addr     }, sizeof(uint32_t)},
+        {{.u8  = data_size}, sizeof(uint8_t) },
+    };
+
+    int argc = sizeof(argv) / sizeof(argv[0]);
+
+    uint8_t* query = netmd_format_query("1821 ff 00 %<d %b", argv, argc, &query_sz);
+
+    if (query != NULL)
+    {
+        // send ...
+        reply_sz = netmd_exch_message_ex(devh, query, query_sz, &reply);
+
+        // free memory
+        free(query);
+    }
+
+    if (reply_sz > 0)
+    {
+        if (reply != NULL)
+        {
+            netmd_scan_query(reply, reply_sz, "1821 00 %? %?%?%?%? %? %?%? %*", &cap_argv, &cap_argc);
+            free(reply);
+        }
+    }
+
+    reply = NULL;
+
+    if (cap_argc > 0)
+    {
+        if (cap_argv != NULL)
+        {
+            if (cap_argv[0].tp == netmd_fmt_barray)
+            {
+                // don't mind the checksum
+                *reply_size = cap_argv[0].size - 2;
+                if ((reply = malloc(*reply_size)) != NULL)
+                {
+                    memcpy_s(reply, *reply_size, cap_argv[0].data.pu8, *reply_size);
+                }
+                else
+                {
+                    *reply_size = 0;
+                }
+                free(cap_argv[0].data.pu8);
+            }
+            free(cap_argv);
+        }
+    }
+
+    return reply;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      open / close device memory
+//!
+//! @param[in]  devh  device handle
+//! @param[in]  addr  address
+//! @param[in]  sz    size of memory to change state
+//! @param[in]  state open state
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+static netmd_error netmd_change_memory_state(netmd_dev_handle *devh, uint32_t addr, size_t sz, netmd_memory_open_t state)
+{
+    netmd_error ret = NETMD_ERROR;
+    size_t query_sz = 0;
+    netmd_query_data_t argv[] = {
+        {{.u32 = addr }, sizeof(uint32_t)},
+        {{.u8  = sz   }, sizeof(uint8_t) },
+        {{.u8  = state}, sizeof(uint8_t) },
+    };
+
+    int argc = sizeof(argv) / sizeof(argv[0]);
+
+    uint8_t* query = netmd_format_query("1820 ff 00 %<d %b %b 00", argv, argc, &query_sz);
+    if (query != NULL)
+    {
+        // send ...
+        ret = netmd_send_message(devh, query, query_sz);
+
+        // free memory
+        free(query);
+    }
+
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      open for read, read, close
+//!
+//! @param[in]  devh     device handle
+//! @param[in]  addr     address
+//! @param[in]  sz       size of data to read
+//! @param[out] reply_sz size of data read
+//!
+//! @return     NULL -> error; else -> reply (must be freed afterwards)
+//------------------------------------------------------------------------------
+static uint8_t* netmd_clean_read(netmd_dev_handle *devh, uint32_t addr, size_t sz, size_t* reply_sz)
+{
+    uint8_t* reply = NULL;
+    netmd_change_memory_state(devh, addr, sz, NETMD_MEM_READ);
+    reply = patch_read(devh, addr, sz, reply_sz);
+    netmd_change_memory_state(devh, addr, sz, NETMD_MEM_CLOSE);
+    return reply;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      open for write, write, close
+//!
+//! @param[in]  devh      device handle
+//! @param[in]  addr      address
+//! @param[in]  data      data to write
+//! @param[in]  data_size size of data
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+static netmd_error netmd_clean_write(netmd_dev_handle *devh, uint32_t addr, uint8_t data[], size_t data_size)
+{
+    netmd_error ret = NETMD_ERROR;
+    netmd_change_memory_state(devh, addr, data_size, NETMD_MEM_WRITE);
+    ret = patch_write(devh, addr, data, data_size);
+    netmd_change_memory_state(devh, addr, data_size, NETMD_MEM_CLOSE);
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      get device code / type
+//!
+//! @param[in]  devh      device handle
+//!
+//! @return     sony_dev_info_t
+//! @see        sony_dev_info_t
+//------------------------------------------------------------------------------
+static sony_dev_info_t netmd_get_device_code_ex(netmd_dev_handle *devh)
+{
+    sony_dev_info_t ret = SDI_UNKNOWN;
+    char code[32]       = {'\0',};
+    uint8_t query[]     = {0x18, 0x12, 0xff, 0xff};
+    uint8_t* reply      = NULL;
+    int idx             = 0;
+    int reply_sz        = netmd_exch_message_ex(devh, query, sizeof(query), &reply);
+    uint8_t chip        = 255, hwid = 255, version = 255;
+
+    if (reply_sz)
+    {
+        if (reply != NULL)
+        {
+            if (reply_sz >= 7)
+            {
+                chip    = reply[3];
+                hwid    = reply[4];
+                version = reply[6];
+            }
+            free(reply);
+        }
+    }
+
+    if ((chip != 255) || (hwid != 255) || (version != 255))
+    {
+        switch (chip)
+        {
+        case 0x20:
+            code[idx++] = 'R';
+            break;
+        case 0x21:
+            code[idx++] = 'S';
+            break;
+        case 0x24:
+            code[idx++] = 'H';
+            code[idx++] = 'i';
+            break;
+        default:
+            idx = snprintf(code, 32, "0x%.02X", (int)chip);
+            break;
+        }
+
+        snprintf(&code[idx], 32 - idx, "%d.%d00", (int)(version / 10), (int)(version % 10));
+        netmd_log(NETMD_LOG_VERBOSE, "Found device info: '%s'!", code);
+
+        if (!strncmp(code, "S1.600", 6))
+        {
+            ret = SDI_S1600;
+        }
+        else if (!strncmp(code, "S1.200", 6))
+        {
+            ret = SDI_S1200;
+        }
+    }
+
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      appy one patch
+//!
+//! @param[in]  devh         device handle
+//! @param[in]  address      address where to apply patch
+//! @param[in]  data         patch data
+//! @param[in]  data_size    patch data size
+//! @param[in]  patch_number number of patch
+//------------------------------------------------------------------------------
+static void netmd_patch(netmd_dev_handle *devh, uint32_t address, uint8_t data[], size_t data_size, int patch_number)
+{
+    // Original method written by Sir68k.
+    assert(data_size == 4);
+
+    const uint32_t base    = PERIPHERAL_BASE + patch_number  * 0x10;
+    const uint32_t control = PERIPHERAL_BASE + MAX_PATCH     * 0x10;
+
+    uint8_t  tmpdata[4];
+    uint8_t* reply = NULL;
+    size_t   rsz   = 0;
+
+    // Write 5, 12 to main control
+    tmpdata[0] =  5;
+    tmpdata[1] = 12;
+
+    netmd_clean_write(devh, control, &tmpdata[0], 1);
+    netmd_clean_write(devh, control, &tmpdata[1], 1);
+
+    // AND 0xFE with patch control
+    reply = netmd_clean_read(devh, base, 4, &rsz);
+
+    if (rsz > 0)
+    {
+        if (reply != NULL)
+        {
+            reply[0] &= 0xfe;
+            netmd_clean_write(devh, base, reply, rsz);
+            free(reply);
+        }
+    }
+
+    // AND 0xFD with patch control
+    reply = NULL;
+    rsz   = 0;
+    reply = netmd_clean_read(devh, base, 4, &rsz);
+
+    if (rsz > 0)
+    {
+        if (reply != NULL)
+        {
+            reply[0] &= 0xfd;
+            netmd_clean_write(devh, base, reply, rsz);
+            free(reply);
+        }
+    }
+
+    // Write patch ADDRESS
+    *(uint32_t*)tmpdata = netmd_htolel(address);
+    netmd_clean_write(devh, base + 4, tmpdata, sizeof(address));
+
+    // Write patch VALUE
+    netmd_clean_write(devh, base + 8, data, data_size);
+
+    // OR 1 with patch control
+    reply = NULL;
+    rsz   = 0;
+    reply = netmd_clean_read(devh, base, 4, &rsz);
+
+    if (rsz > 0)
+    {
+        if (reply != NULL)
+        {
+            reply[0] |= 1;
+            netmd_clean_write(devh, base, reply, rsz);
+            free(reply);
+        }
+    }
+
+    // write 5, 9 to main control
+    tmpdata[0] = 5;
+    tmpdata[1] = 9;
+
+    netmd_clean_write(devh, control, &tmpdata[0], 1);
+    netmd_clean_write(devh, control, &tmpdata[1], 1);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      undo one patch
+//!
+//! @param[in]  devh         device handle
+//! @param[in]  patch_number number of patch
+//------------------------------------------------------------------------------
+static void netmd_unpatch(netmd_dev_handle *devh, int patch_number)
+{
+    const uint32_t base    = PERIPHERAL_BASE + patch_number  * 0x10;
+    const uint32_t control = PERIPHERAL_BASE + MAX_PATCH     * 0x10;
+
+    uint8_t  tmpdata[2];
+    uint8_t* reply = NULL;
+    size_t   rsz   = 0;
+
+    // Write 5, 12 to main control
+    tmpdata[0] =  5;
+    tmpdata[1] = 12;
+
+    netmd_clean_write(devh, control, &tmpdata[0], 1);
+    netmd_clean_write(devh, control, &tmpdata[1], 1);
+
+    // AND 0xFE with patch control
+    reply = netmd_clean_read(devh, base, 4, &rsz);
+
+    if (rsz > 0)
+    {
+        if (reply != NULL)
+        {
+            reply[0] &= 0xfe;
+            netmd_clean_write(devh, base, reply, rsz);
+            free(reply);
+        }
+    }
+
+    // write 5, 9 to main control
+    tmpdata[0] = 5;
+    tmpdata[1] = 9;
+
+    netmd_clean_write(devh, control, &tmpdata[0], 1);
+    netmd_clean_write(devh, control, &tmpdata[1], 1);
+}
+
+// exported functions
+
+//------------------------------------------------------------------------------
+//! @brief      appy SP upload patch
+//!
+//! @param[in]  devh         device handle
+//! @param[in]  chan_no      number of audio channels (1: mono, 2: stereo)
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
+{
+    netmd_error ret    = NETMD_NO_ERROR;
+    patch_id_t  patch0 = PID_UNKNOWN;
+    uint32_t    addr   = 0;
+    size_t      rsz    = 0;
+    uint8_t*    reply  = NULL;
+    sony_dev_info_t devcode;
+
+    if ((devcode = netmd_get_device_code_ex(devh)) == SDI_S1200)
+    {
+        patch0 = PID_PATCH_0_B;
+    }
+    else if (devcode == SDI_S1600)
+    {
+        if ((addr = get_patch_address(devcode, PID_DEVTYPE)) != 0)
+        {
+            if ((reply = netmd_clean_read(devh, addr, 1, &rsz)) != NULL)
+            {
+                if (rsz > 0)
+                {
+                    if (reply[0] == 1)
+                    {
+                        patch0 = PID_PATCH_0_B;
+                    }
+                    else
+                    {
+                        patch0 = PID_PATCH_0_A;
+                    }
+                }
+                free(reply);
+            }
+        }
+    }
+
+    if (patch0 != PID_UNKNOWN)
+    {
+        netmd_patch(devh, get_patch_address(devcode, patch0),
+                    get_patch_payload(devcode, PID_PATCH_0), 4, 0);
+
+        netmd_patch(devh, get_patch_address(devcode, PID_PATCH_CMN_1),
+                    get_patch_payload(devcode, PID_PATCH_CMN_1), 4, 1);
+
+        netmd_patch(devh, get_patch_address(devcode, PID_PATCH_CMN_2),
+                    get_patch_payload(devcode, PID_PATCH_CMN_2), 4, 2);
+
+        netmd_patch(devh, get_patch_address(devcode, PID_PREP_PATCH),
+                    get_patch_payload(devcode, PID_PREP_PATCH), 4, 3);
+
+        reply    = get_patch_payload(devcode, PID_TRACK_TYPE);
+        reply[1] = (chan_no == 1) ? 4 : 6; // mono or stereo
+        netmd_patch(devh, get_patch_address(devcode, PID_TRACK_TYPE),
+                    reply, 4, 4);
+    }
+    else
+    {
+        ret = NETMD_ERROR;
+        netmd_log(NETMD_LOG_ERROR, "Can't figue out patch 0!\n");
+    }
+
+    return ret;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      undo SP upload patch
+//!
+//! @param[in]  devh  device handle
+//------------------------------------------------------------------------------
+void netmd_undo_sp_patch(netmd_dev_handle *devh)
+{
+    netmd_unpatch(devh, 0);
+    netmd_unpatch(devh, 1);
+    netmd_unpatch(devh, 2);
+    netmd_unpatch(devh, 3);
+    netmd_unpatch(devh, 4);
+}

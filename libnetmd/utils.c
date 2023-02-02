@@ -302,10 +302,25 @@ static int bigEndian()
     return (buf[0] == 0x88) ? 1 : 0;
 }
 
-static uint16_t byteSwop(uint16_t in)
+static uint16_t swop16(uint16_t in)
 {
     return ((in & 0xff) << 8) | ((in >> 8) & 0xff);
 }
+
+static uint32_t swop32(uint32_t in)
+{
+    return (( in        & 0xff) << 24) | (((in >>  8) & 0xff) << 16)
+         | (((in >> 16) & 0xff) <<  8) | (( in >> 24) & 0xff       );
+}
+
+static uint64_t swop64(uint64_t in)
+{
+    return (( in           & 0xff) << 56ull) | (((in >>  8ull) & 0xff) << 48ull)
+         | (((in >> 16ull) & 0xff) << 40ull) | (((in >> 24ull) & 0xff) << 32ull)
+         | (((in >> 32ull) & 0xff) << 24ull) | (((in >> 40ull) & 0xff) << 16ull)
+         | (((in >> 48ull) & 0xff) <<  8ull) | (( in >> 56ull) & 0xff          );
+}
+
 
 //------------------------------------------------------------------------------
 //! @brief      htons short and dirty
@@ -319,7 +334,24 @@ uint16_t netmd_htons(uint16_t in)
     if (bigEndian() == 0)
     {
         // little endian -> swop bytes
-        return byteSwop(in);
+        return swop16(in);
+    }
+    return in;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      htonl short and dirty
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint32_t netmd_htonl(uint32_t in)
+{
+    if (bigEndian() == 0)
+    {
+        // little endian -> swop bytes
+        return swop32(in);
     }
     return in;
 }
@@ -335,4 +367,550 @@ uint16_t netmd_ntohs(uint16_t in)
 {
     // same same and not different ...
     return netmd_htons(in);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      ntohl short and dirty
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint32_t netmd_ntohl(uint32_t in)
+{
+    // same same and not different ...
+    return netmd_htonl(in);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      host to big endian long long
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint64_t netmd_htonll(uint64_t in)
+{
+    if (bigEndian() == 0)
+    {
+        // little endian -> swop bytes
+        return swop64(in);
+    }
+    return in;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      host to little endian short
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint16_t netmd_htoles(uint16_t in)
+{
+    if (bigEndian())
+    {
+        // little endian -> swop bytes
+        return swop16(in);
+    }
+    return in;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      host to little endian long
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint32_t netmd_htolel(uint32_t in)
+{
+    if (bigEndian())
+    {
+        return swop32(in);
+    }
+    return in;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      host to little endian long long
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint64_t netmd_htolell(uint64_t in)
+{
+    if (bigEndian())
+    {
+        return swop64(in);
+    }
+    return in;
+}
+
+//------------------------------------------------------------------------------
+//! @brief      little to host endian short
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint16_t netmd_letohs(uint16_t in)
+{
+    return netmd_htoles(in);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      little endian to host long
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint32_t netmd_letohl(uint32_t in)
+{
+    return netmd_htolel(in);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      little endian to host long long
+//!
+//! @param[in]  in    value to convert
+//!
+//! @return     converted or original value
+//------------------------------------------------------------------------------
+uint64_t netmd_letohll(uint64_t in)
+{
+    return netmd_htolell(in);
+}
+
+//------------------------------------------------------------------------------
+//! @brief     calculate NetMD checksum
+//!
+//! @param[in] data pointer to data
+//! @param[in] size data size
+//!
+//! @return    checksum
+//------------------------------------------------------------------------------
+unsigned int netmd_calculate_checksum(unsigned char data[], size_t size)
+{
+    unsigned int crc  = 0;
+    unsigned int temp = size;
+
+    for (size_t i = 0; i < size; i++)
+    {
+        temp = (temp & 0xffff0000) | data[i];
+        crc ^= temp;
+
+        for (int j = 0; j < 16; j++)
+        {
+            unsigned int ts = crc & 0x8000;
+            crc <<= 1;
+            if (ts)
+            {
+                crc ^= 0x1021;
+            }
+        }
+    }
+
+    return (crc & 0xffff);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      format a netmd device query
+//!
+//! @param[in]  format    format string
+//! @param[in]  argv      arguments array
+//! @param[in]  argc      argument count
+//! @param[in]  query_sz  buffer for query size
+//!
+//! @return     formatted byte array (you MUST call free() if not NULL);
+//!             NULL on error
+//------------------------------------------------------------------------------
+uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[], int argc, size_t* query_sz)
+{
+#define mBUFFSZ 2048
+#define mSZ_CHECK                                                                                        \
+    do                                                                                                   \
+    {                                                                                                    \
+        if ((argv[argno].size + byteIdx) > mBUFFSZ)                                                      \
+        {                                                                                                \
+            netmd_log(NETMD_LOG_ERROR, "Error: Data size exceeds prepared memory in %s!", __FUNCTION__); \
+            return ret;                                                                                  \
+        }                                                                                                \
+    } while(0)
+
+    uint8_t* ret = NULL;
+    uint8_t out[mBUFFSZ];
+    uint8_t b;
+    size_t byteIdx     = 0;
+    char   tok[3]     = {'\0',};
+    size_t tokIdx     = 0;
+    int    argno      = 0;
+    int    esc        = 0;
+    netmd_endianess_t endian = netmd_no_convert;
+    *query_sz         = 0;
+
+    // remove spaces
+    while (*format != '\0')
+    {
+        // add some kind of sanity check
+        if ((argno > argc) || (byteIdx > (mBUFFSZ - 1)))
+        {
+            netmd_log(NETMD_LOG_ERROR, "Error sanity check in %s!", __FUNCTION__);
+            return ret;
+        }
+
+        if (!esc)
+        {
+            switch(*format)
+            {
+            case '\t':
+            case ' ':
+                // ignore
+                break;
+            case '%':
+                esc = 1;
+                break;
+            default:
+                tok[tokIdx++] = *format;
+                if (tokIdx == 2)
+                {
+                    char *end;
+                    b = strtoul(tok, &end, 16);
+
+                    if (end != tok)
+                    {
+                        out[byteIdx++] = b;
+                    }
+                    else
+                    {
+                        // can't convert char* to number
+                        netmd_log(NETMD_LOG_ERROR, "Can't convert token '%s' into hex number in %s!", tok, __FUNCTION__);
+                        return ret;
+                    }
+
+                    tokIdx = 0;
+                }
+                break;
+            }
+        }
+        else
+        {
+            int c;
+            switch((c = tolower(*format)))
+            {
+            case netmd_fmt_byte:
+                mSZ_CHECK;
+                out[byteIdx++] = argv[argno++].data.u8;
+                esc    = 0;
+                endian = netmd_no_convert;
+                break;
+
+            case netmd_fmt_word:
+                mSZ_CHECK;
+                if (endian == netmd_hto_littleendian)
+                {
+                    *(uint16_t*)&out[byteIdx] = netmd_htoles(argv[argno].data.u16);
+                }
+                else if (endian == netmd_hto_bigendian)
+                {
+                    *(uint16_t*)&out[byteIdx] = netmd_htons(argv[argno].data.u16);
+                }
+                else
+                {
+                    *(uint16_t*)&out[byteIdx] = argv[tokIdx].data.u16;
+                }
+                byteIdx += argv[argno++].size;
+                esc      = 0;
+                endian   = netmd_no_convert;
+                break;
+
+            case netmd_fmt_dword:
+                mSZ_CHECK;
+                if (endian == netmd_hto_littleendian)
+                {
+                    *(uint32_t*)&out[byteIdx] = netmd_htolel(argv[argno].data.u32);
+                }
+                else if (endian == netmd_hto_bigendian)
+                {
+                    *(uint32_t*)&out[byteIdx] = netmd_htonl(argv[argno].data.u32);
+                }
+                else
+                {
+                    *(uint32_t*)&out[byteIdx] = argv[argno].data.u32;
+                }
+                byteIdx += argv[argno++].size;
+                esc      = 0;
+                endian   = netmd_no_convert;
+                break;
+
+            case netmd_fmt_qword:
+                mSZ_CHECK;
+                if (endian == netmd_hto_littleendian)
+                {
+                    *(uint64_t*)&out[byteIdx] = netmd_htolell(argv[argno].data.u64);
+                }
+                else if (endian == netmd_hto_bigendian)
+                {
+                    *(uint64_t*)&out[byteIdx] = netmd_htonll(argv[argno].data.u64);
+                }
+                else
+                {
+                    *(uint64_t*)&out[byteIdx] = argv[argno].data.u64;
+                }
+                byteIdx += argv[argno++].size;
+                esc      = 0;
+                endian   = netmd_no_convert;
+                break;
+
+            case netmd_fmt_barray:
+                mSZ_CHECK;
+                if (memcpy_s(&out[byteIdx], mBUFFSZ - byteIdx, argv[argno].data.pu8, argv[argno].size))
+                {
+                    // should never happen
+                    netmd_log(NETMD_LOG_ERROR, "Error: Data size exceeds prepared memory in %s!", __FUNCTION__);
+                    return ret;
+                }
+                byteIdx += argv[argno++].size;
+                esc      = 0;
+                endian   = netmd_no_convert;
+                break;
+
+            case netmd_hto_littleendian:
+            case netmd_hto_bigendian:
+                endian = c;
+                break;
+
+            default:
+                netmd_log(NETMD_LOG_ERROR, "Unsupported format option '%c' used in %s!", c, __FUNCTION__);
+                return ret;
+                break;
+            }
+        }
+        format++;
+    }
+
+    if (byteIdx)
+    {
+        *query_sz = byteIdx;
+        if ((ret = malloc(byteIdx)) != NULL)
+        {
+            memcpy_s(ret, byteIdx, out, byteIdx);
+        }
+    }
+
+    return ret;
+#undef mSZ_CHECK
+#undef mBUFFSZ
+}
+
+//------------------------------------------------------------------------------
+//! @brief      scan data for format options
+//!
+//! @param[in]  data      byte array to scan
+//! @param[in]  size      data size
+//! @param[in]  format    format string
+//! @param[out] argv      buffer pointer for argument array
+//!                       (call free() if not NULL!)
+//!                       Note: If stored data is an byte array,
+//!                       you have to free it using free() as well!
+//! @param[out] argc      pointer to argument count
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netmd_capture_data_t** argv, int* argc)
+{
+#define mBUFFSZ 10
+    netmd_capture_data_t dataBuffer[mBUFFSZ] = {{netmd_fmt_barray, {.u8 = 0}, 0},};
+    int     ret                 = -1;
+    int     esc                 =  0;
+    char    tok[3]              = {'\0',};
+    size_t  tokIdx              =  0;
+    size_t  dataIdx             = 0;
+    uint8_t cmp                 = 0;
+    netmd_capture_data_t* pArgv = dataBuffer;
+
+    // remove spaces
+    while (*format != '\0')
+    {
+        if ((*argc > mBUFFSZ) || (dataIdx >= size))
+        {
+            netmd_log(NETMD_LOG_ERROR, "Error sanity check in %s!", __FUNCTION__);
+
+            for (int i = 0; i < (*argc - 1); i++)
+            {
+                if ((dataBuffer[i].tp == netmd_fmt_barray) && (dataBuffer[i].data.pu8 != NULL))
+                {
+                    free(dataBuffer[i].data.pu8);
+                }
+            }
+            return ret;
+        }
+
+        if (!esc)
+        {
+            switch(*format)
+            {
+            case '\t':
+            case ' ':
+                // ignore
+                break;
+            case '%':
+                esc = 1;
+                break;
+            default:
+                tok[tokIdx++] = *format;
+                if (tokIdx == 2)
+                {
+                    char *end;
+                    cmp = strtoul(tok, &end, 16);
+
+                    if (end != tok)
+                    {
+                        if (cmp != data[dataIdx++]) return ret;
+                    }
+                    else
+                    {
+                        // can't convert char* to number
+                        netmd_log(NETMD_LOG_ERROR, "Can't convert token '%s' into hex number in %s!", tok, __FUNCTION__);
+                        return ret;
+                    }
+
+                    tokIdx = 0;
+                }
+                break;
+            }
+        }
+        else
+        {
+            int c;
+            switch((c = tolower(*format)))
+            {
+            case '?':
+                esc = 0;
+                dataIdx ++;
+                break;
+
+            case netmd_fmt_byte:
+                // capture byte
+                pArgv->tp      = c;
+                pArgv->size    = 1;
+                pArgv->data.u8 = data[dataIdx++];
+                pArgv++;
+                (*argc)++;
+                esc = 0;
+                break;
+
+            case netmd_fmt_word:
+                // capture word
+                pArgv->tp       = c;
+                pArgv->size     = 2;
+                pArgv->data.u16 = netmd_letohs(*(uint16_t*)&data[dataIdx]);
+
+                (*argc)++;
+                dataIdx += pArgv->size;
+                pArgv++;
+                esc = 0;
+                break;
+
+            case netmd_fmt_dword:
+                // capture dword
+                pArgv->tp       = c;
+                pArgv->size     = 4;
+                pArgv->data.u32 = netmd_letohl(*(uint32_t*)&data[dataIdx]);
+
+                (*argc)++;
+                dataIdx += pArgv->size;
+                pArgv++;
+                esc = 0;
+                break;
+
+            case netmd_fmt_qword:
+                // capture qword
+                pArgv->tp       = c;
+                pArgv->size     = 8;
+                pArgv->data.u64 = netmd_letohll(*(uint64_t*)&data[dataIdx]);
+
+                (*argc)++;
+                dataIdx += pArgv->size;
+                pArgv++;
+                esc = 0;
+                break;
+
+            case netmd_fmt_barray:
+                pArgv->tp   = c;
+                pArgv->size = size - dataIdx;
+                if ((pArgv->data.pu8 = malloc(pArgv->size)) != NULL)
+                {
+                    memcpy_s(pArgv->data.pu8, pArgv->size, &data[dataIdx], pArgv->size);
+                }
+                else
+                {
+                    netmd_log(NETMD_LOG_ERROR, "Error memory allocation error in %s!", __FUNCTION__);
+
+                    for (int i = 0; i < *argc; i++)
+                    {
+                        if ((dataBuffer[i].tp == netmd_fmt_barray) && (dataBuffer[i].data.pu8 != NULL))
+                        {
+                            free(dataBuffer[i].data.pu8);
+                        }
+                    }
+                    return ret;
+                }
+
+                (*argc)++;
+                dataIdx += pArgv->size;
+                pArgv++;
+                esc = 0;
+                break;
+
+            case netmd_hto_littleendian:
+            case netmd_hto_bigendian:
+                // endian = c;
+                // ignore
+                break;
+
+            default:
+                netmd_log(NETMD_LOG_ERROR, "Unsupported format option '%c' used in %s!", c, __FUNCTION__);
+                return ret;
+                break;
+            }
+        }
+
+        format ++;
+    }
+
+    ret = 0;
+
+    if ((*argc) > 0)
+    {
+        /**
+         *  \note We do not copy the byte array data, but the pointer to them.
+         *        Memory was allocated above and has to be freed afterwards.
+         */
+        size_t cpsz = (*argc) * sizeof(netmd_capture_data_t);
+
+        if ((*argv = malloc(cpsz)) != NULL)
+        {
+            memcpy_s(*argv, cpsz, dataBuffer, cpsz);
+        }
+        else
+        {
+            netmd_log(NETMD_LOG_ERROR, "Error memory allocation error in %s!", __FUNCTION__);
+
+            for (int i = 0; i < *argc; i++)
+            {
+                if ((dataBuffer[i].tp == netmd_fmt_barray) && (dataBuffer[i].data.pu8 != NULL))
+                {
+                    free(dataBuffer[i].data.pu8);
+                }
+            }
+            ret = -1;
+        }
+    }
+
+    return ret;
+
+#undef mBUFFSZ
 }
