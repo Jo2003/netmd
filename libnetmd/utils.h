@@ -240,4 +240,15 @@ uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[],
 //------------------------------------------------------------------------------
 int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netmd_capture_data_t** argv, int* argc);
 
+//------------------------------------------------------------------------------
+//! @brief      prepare AUDIO for SP upload
+//!
+//! @param[in/out]  audio_data audio data (on out: must be freed afterwards)
+//! @param[in/out]  data_size  size of audio data
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_size);
+
 #endif

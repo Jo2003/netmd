@@ -942,7 +942,6 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
     {
         for (in_idx = 0; in_idx < in_sz; in_idx += 2332)
         {
-            // sector size might be less than 2332 bytes
             sector_sz = ((in_sz - in_idx) >= 2332) ? 2332 : in_sz - in_idx;
             sector = &out_data[out_idx];
             memcpy_s(sector, new_sz - out_idx, &in_data[in_idx], sector_sz);
@@ -969,6 +968,5 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
     }
 
     return NETMD_ERROR;
-
 #undef PAD_SZ
 }
