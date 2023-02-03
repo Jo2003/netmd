@@ -19,6 +19,7 @@
 #include "patch.h"
 #include "utils.h"
 #include "log.h"
+#include "libnetmd.h"
 
 // defines
 #define PERIPHERAL_BASE 0x03802000ul
@@ -222,7 +223,7 @@ static netmd_error patch_write(netmd_dev_handle *devh, uint32_t addr, uint8_t da
 
     int argc = sizeof(argv) / sizeof(argv[0]);
 
-    uint8_t* query = netmd_format_query("1822 ff 00 %<d %b 0000 %* %<w", argv, argc, &query_sz);
+    uint8_t* query = netmd_format_query("00 1822 ff 00 %<d %b 0000 %* %<w", argv, argc, &query_sz);
     if (query != NULL)
     {
         // send ...
@@ -260,7 +261,7 @@ static uint8_t* patch_read(netmd_dev_handle *devh, uint32_t addr, size_t data_si
 
     int argc = sizeof(argv) / sizeof(argv[0]);
 
-    uint8_t* query = netmd_format_query("1821 ff 00 %<d %b", argv, argc, &query_sz);
+    uint8_t* query = netmd_format_query("00 1821 ff 00 %<d %b", argv, argc, &query_sz);
 
     if (query != NULL)
     {
@@ -275,7 +276,7 @@ static uint8_t* patch_read(netmd_dev_handle *devh, uint32_t addr, size_t data_si
     {
         if (reply != NULL)
         {
-            netmd_scan_query(reply, reply_sz, "1821 00 %? %?%?%?%? %? %?%? %*", &cap_argv, &cap_argc);
+            netmd_scan_query(reply, reply_sz, "%? 1821 00 %? %?%?%?%? %? %?%? %*", &cap_argv, &cap_argc);
             free(reply);
         }
     }
@@ -330,7 +331,7 @@ static netmd_error netmd_change_memory_state(netmd_dev_handle *devh, uint32_t ad
 
     int argc = sizeof(argv) / sizeof(argv[0]);
 
-    uint8_t* query = netmd_format_query("1820 ff 00 %<d %b %b 00", argv, argc, &query_sz);
+    uint8_t* query = netmd_format_query("00 1820 ff 00 %<d %b %b 00", argv, argc, &query_sz);
     if (query != NULL)
     {
         // send ...
@@ -394,7 +395,7 @@ static sony_dev_info_t netmd_get_device_code_ex(netmd_dev_handle *devh)
 {
     sony_dev_info_t ret = SDI_UNKNOWN;
     char code[32]       = {'\0',};
-    uint8_t query[]     = {0x18, 0x12, 0xff, 0xff};
+    uint8_t query[]     = {0x00, 0x18, 0x12, 0xff, 0xff};
     uint8_t* reply      = NULL;
     int idx             = 0;
     int reply_sz        = netmd_exch_message_ex(devh, query, sizeof(query), &reply);
@@ -675,6 +676,39 @@ static void netmd_safety_patch(netmd_dev_handle *devh)
     }
 }
 
+//------------------------------------------------------------------------------
+//! @brief      enable factory commands
+//!
+//! @param[in]  devh device handle
+//!
+//! @return     netmd_error
+//! @see        netmd_error
+//------------------------------------------------------------------------------
+static netmd_error netmd_enable_factory(netmd_dev_handle *devh)
+{
+    netmd_error ret  = NETMD_NO_ERROR;
+    uint8_t     p2[] = {0x00, 0x18, 0x09, 0x00, 0xff, 0x00, 0x00, 0x00,
+                        0x00, 0x00};
+    uint8_t     p3[] = {0x00, 0x18, 0x01, 0xff, 0x0e, 0x4e, 0x65, 0x74,
+                        0x20, 0x4d, 0x44, 0x20, 0x57, 0x61, 0x6c, 0x6b,
+                        0x6d, 0x61, 0x6e};
+
+    if (netmd_change_descriptor_state(devh, discSubunitIndentifier, nda_openread))
+    {
+        ret = NETMD_ERROR;
+    }
+    if (netmd_send_message(devh, p2, sizeof(p2)))
+    {
+        ret = NETMD_ERROR;
+    }
+    if (netmd_send_message(devh, p3, sizeof(p3)))
+    {
+        ret = NETMD_ERROR;
+    }
+
+    return ret;
+}
+
 // exported functions
 
 //------------------------------------------------------------------------------
@@ -695,6 +729,7 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     uint8_t*    reply  = NULL;
     sony_dev_info_t devcode;
 
+    netmd_enable_factory(devh);
     netmd_safety_patch(devh);
 
     if ((devcode = netmd_get_device_code_ex(devh)) == SDI_S1200)

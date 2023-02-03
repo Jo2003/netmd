@@ -85,6 +85,31 @@ typedef struct {
     unsigned int group_count;
 } minidisc;
 
+typedef enum {
+    // TD - text database
+    discTitleTD,
+    audioUTOC1TD,
+    audioUTOC4TD,
+    DSITD,
+    audioContentsTD,
+    rootTD,
+
+    discSubunitIndentifier,
+    operatingStatusBlock, // Real name unknown
+} netmd_descriptor_t;
+
+typedef struct
+{
+    netmd_descriptor_t descr;
+    uint8_t data[3];
+    size_t sz;
+} netmd_descr_val_t;
+
+typedef enum {
+    nda_openread = 0x01,
+    nda_openwrite = 0x03,
+    nda_close = 0x00,
+} netmd_descriptor_action_t;
 
 /**
    Global variable containing netmd_group data for each group. There will be
@@ -268,3 +293,14 @@ int netmd_request_track_count(netmd_dev_handle* dev, uint16_t* tcount);
 //! @return     0 -> ok; -1 -> error
 //------------------------------------------------------------------------------
 int netmd_request_disc_flags(netmd_dev_handle* dev, uint8_t* flags);
+
+//------------------------------------------------------------------------------
+//! @brief      change descriptor state
+//!
+//! @param      devh[in]   device handle
+//! @param      descr[in]  descriptor
+//! @param      act[in]    descriptor action
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_change_descriptor_state(netmd_dev_handle* devh, netmd_descriptor_t descr, netmd_descriptor_action_t act);
