@@ -936,6 +936,10 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
     uint8_t* sector;
     size_t sector_sz;
 
+    // mind the header of 2048 bytes
+    in_sz   -= 2048;
+    in_data += 2048;
+
     // get final memory size incl. padding
     size_t new_sz = ceil(in_sz / 2332) * 100 + in_sz;
     if((out_data = malloc(new_sz)) != NULL)
@@ -960,10 +964,10 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
             memcpy_s(&out_data[out_idx], new_sz - out_idx, padding, PAD_SZ);
             out_idx += PAD_SZ;
         }
+
+        free(*audio_data);
         *data_size  = out_idx;
         *audio_data = out_data;
-
-        free(in_data);
 
         return NETMD_NO_ERROR;
     }
