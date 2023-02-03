@@ -37,9 +37,6 @@ typedef enum
 
 #define NO_ONTHEFLY_CONVERSION 0xf
 
-#define CONVERT_PCM 1
-#define CONVERT_BLOCK_SP 2
-
 static json_object *json;
 static FILE* json_fd = NULL;
 
