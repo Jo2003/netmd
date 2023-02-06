@@ -235,11 +235,11 @@ static int audio_supported(const unsigned char * file, size_t fsize, netmd_wiref
             *wireformat = NETMD_WIREFORMAT_105KBPS;
             *headersize = 2048;
             *conversion = apt_sp;
+            return 1;
         }
         else
             return 0;                                         /* no valid WAV file or fmt chunk missing*/
     }
-
 
     if(leword16(file+20) == 1)                                /* PCM */
     {
@@ -1099,6 +1099,65 @@ void netmd_cli_set_json_fd(FILE* fd)
     json_fd = fd;
 }
 
+void test_new_utils()
+{
+    uint8_t *query = NULL;
+    size_t   qsz   = 0;
+    uint32_t addr  = 0x01020304;
+    uint8_t  data[] = {0xde, 0xad, 0xbe, 0xef, 0x4e};
+
+    netmd_query_data_t argv[] = {
+        {{.u32 = addr                                     }, sizeof(uint32_t)},
+        {{.u8  = 5                                        }, sizeof(uint8_t) },
+        {{.pu8 = data                                     }, 5               },
+        {{.u16 = netmd_calculate_checksum(data, 5)        }, sizeof(uint16_t)},
+    };
+
+    int argc = sizeof(argv) / sizeof(argv[0]);
+    query = netmd_format_query("00 1822 ff 00 %<d %b 0000 %* %<w", argv, argc, &qsz);
+
+    if (query != NULL)
+    {
+        netmd_log_hex(NETMD_LOG_ALL, query, qsz);
+
+        netmd_capture_data_t *capture = NULL;
+        int                   cap_sz  = 0;
+
+        netmd_scan_query(query, qsz, "%? 1822 ff %b %w %? %? %b 0000 %*", &capture, &cap_sz);
+        netmd_log(NETMD_LOG_ALL, "Scan gives following values:\n");
+        if (capture != NULL)
+        {
+            for(int i = 0; i < cap_sz; i++)
+            {
+                switch(capture[i].tp)
+                {
+                case netmd_fmt_byte:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Byte: 0x%.02x\n", i, (int)capture[i].data.u8);
+                    break;
+                case netmd_fmt_word:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Word: 0x%.04x\n", i, capture[i].data.u16);
+                    break;
+                case netmd_fmt_dword:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, DWord: 0x%.08x\n", i, capture[i].data.u32);
+                    break;
+                case netmd_fmt_qword:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, QWord: 0x%.016x\n", i, capture[i].data.u64);
+                    break;
+                case netmd_fmt_barray:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Byte Array: ", i);
+                    netmd_log_hex(NETMD_LOG_ALL, capture[i].data.pu8, capture[i].size);
+                    free(capture[i].data.pu8);
+                    break;
+                default:
+                    break;
+                }
+            }
+            free(capture);
+        }
+        free(query);
+    }
+}
+
 int run_me(int argc, char* argv[])
 {
     netmd_dev_handle* devh;
@@ -1123,10 +1182,14 @@ int run_me(int argc, char* argv[])
         opterr = 0;
         optind = 1;
 
-        while ((c = getopt (argc, argv, "tvd:")) != -1)
+        while ((c = getopt (argc, argv, "tvd:Y")) != -1)
         {
             switch (c)
             {
+            case 'Y':
+                test_new_utils();
+                return 0;
+                break;
             case 't':
                 netmd_set_log_level(NETMD_LOG_ALL);
                 break;

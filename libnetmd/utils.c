@@ -697,6 +697,8 @@ uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[],
         if ((ret = malloc(byteIdx)) != NULL)
         {
             memcpy_s(ret, byteIdx, out, byteIdx);
+            netmd_log(NETMD_LOG_DEBUG, "Created query: ");
+            netmd_log_hex(NETMD_LOG_DEBUG, ret, byteIdx);
         }
     }
 
@@ -730,6 +732,9 @@ int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netm
     size_t  dataIdx             = 0;
     uint8_t cmp                 = 0;
     netmd_capture_data_t* pArgv = dataBuffer;
+
+    netmd_log(NETMD_LOG_DEBUG, "Scan reply: ");
+    netmd_log_hex(NETMD_LOG_DEBUG, data, size);
 
     // remove spaces
     while (*format != '\0')

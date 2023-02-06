@@ -75,6 +75,7 @@ static const size_t netmd_descr_count = sizeof(netmd_descriptor_states) / sizeof
 int netmd_change_descriptor_state(netmd_dev_handle* devh, netmd_descriptor_t descr, netmd_descriptor_action_t act)
 {
     int ret = -1;
+    uint8_t buff[255];
     for (size_t i = 0; i < netmd_descr_count; i++)
     {
         if (netmd_descriptor_states[i].descr == descr)
@@ -87,7 +88,7 @@ int netmd_change_descriptor_state(netmd_dev_handle* devh, netmd_descriptor_t des
             uint8_t* query = netmd_format_query("00 1808 %* %b 00", data, 2, &qsz);
             if (query != NULL)
             {
-                ret = netmd_send_message(devh, query, qsz);
+                ret = netmd_exch_message(devh, query, qsz, buff);
                 free(query);
             }
         }

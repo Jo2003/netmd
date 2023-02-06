@@ -37,6 +37,21 @@
 #define NETMD_RECV_TRIES 30
 #define NETMD_SYNC_TRIES 5
 
+//! @brief factory write
+static int _s_factory = 0;
+
+//------------------------------------------------------------------------------
+//! @brief      enable / disable factory write
+//!
+//! @param      devh    The devh
+//! @param      enable  1 to enable factory write, 0 to disable
+//------------------------------------------------------------------------------
+void netmd_set_factory_write(int enable)
+{
+    netmd_log(NETMD_LOG_DEBUG, "Set factory write to %s!\n", enable ? "0xff" : "0x80");
+    _s_factory = enable;
+}
+
 /*
   polls to see if minidisc wants to send data
 
@@ -174,7 +189,7 @@ int netmd_send_message(netmd_dev_handle *devh, unsigned char *cmd,
     netmd_log(NETMD_LOG_DEBUG, "Command:\n");
     netmd_log_hex(NETMD_LOG_DEBUG, cmd, cmdlen);
     if (libusb_control_transfer(dev, LIBUSB_ENDPOINT_OUT | LIBUSB_REQUEST_TYPE_VENDOR |
-                        LIBUSB_RECIPIENT_INTERFACE, 0x80, 0, 0, cmd, (int)cmdlen,
+                        LIBUSB_RECIPIENT_INTERFACE, _s_factory ? 0xff : 0x80, 0, 0, cmd, (int)cmdlen,
                         NETMD_SEND_TIMEOUT) < 0) {
         netmd_log(NETMD_LOG_ERROR, "netmd_exch_message: libusb_control_transfer failed\n");
         return NETMDERR_USB;

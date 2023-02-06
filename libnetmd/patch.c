@@ -127,6 +127,9 @@ static const size_t patch_payload_tab_size = sizeof(patch_payload_tab) / sizeof(
 //! @brief patch areas used
 static patch_id_t used_patches[MAX_PATCH] = {PID_UNUSED,};
 
+//! @brief used for exchang
+static uint8_t _s_buff[255];
+
 // internal functions
 
 //------------------------------------------------------------------------------
@@ -227,7 +230,7 @@ static netmd_error patch_write(netmd_dev_handle *devh, uint32_t addr, uint8_t da
     if (query != NULL)
     {
         // send ...
-        ret = netmd_send_message(devh, query, query_sz);
+        ret = netmd_exch_message(devh, query, query_sz, _s_buff);
 
         // free memory
         free(query);
@@ -335,7 +338,7 @@ static netmd_error netmd_change_memory_state(netmd_dev_handle *devh, uint32_t ad
     if (query != NULL)
     {
         // send ...
-        ret = netmd_send_message(devh, query, query_sz);
+        ret = netmd_exch_message(devh, query, query_sz, _s_buff);
 
         // free memory
         free(query);
@@ -395,25 +398,16 @@ static sony_dev_info_t netmd_get_device_code_ex(netmd_dev_handle *devh)
 {
     sony_dev_info_t ret = SDI_UNKNOWN;
     char code[32]       = {'\0',};
-    uint8_t query[]     = {0x00, 0x18, 0x12, 0xff, 0xff};
-    uint8_t* reply      = NULL;
+    uint8_t query[]     = {0x00, 0x18, 0x12, 0xff};
     int idx             = 0;
-    int reply_sz        = netmd_exch_message_ex(devh, query, sizeof(query), &reply);
     uint8_t chip        = 255, hwid = 255, version = 255;
 
-    if (reply_sz)
-    {
-        if (reply != NULL)
-        {
-            if (reply_sz >= 7)
-            {
-                chip    = reply[3];
-                hwid    = reply[4];
-                version = reply[6];
-            }
-            free(reply);
-        }
-    }
+    memset(_s_buff, 0xff, 255);
+    netmd_exch_message(devh, query, sizeof(query), _s_buff);
+
+    chip    = _s_buff[4];
+    hwid    = _s_buff[5];
+    version = _s_buff[7];
 
     if ((chip != 255) || (hwid != 255) || (version != 255))
     {
@@ -434,8 +428,8 @@ static sony_dev_info_t netmd_get_device_code_ex(netmd_dev_handle *devh)
             break;
         }
 
-        snprintf(&code[idx], 32 - idx, "%d.%d00", (int)(version / 10), (int)(version % 10));
-        netmd_log(NETMD_LOG_VERBOSE, "Found device info: '%s'!", code);
+        snprintf(&code[idx], 32 - idx, "%d.%d00", (int)(version >> 4), (int)(version & 0x0f));
+        netmd_log(NETMD_LOG_VERBOSE, "Found device info: '%s'!\n", code);
 
         if (!strncmp(code, "S1.600", 6))
         {
@@ -655,6 +649,7 @@ static void netmd_safety_patch(netmd_dev_handle *devh)
             {
                 if ((patch.addr == addr) && !memcmp(patch.data, patch_cnt, 4))
                 {
+                    netmd_log(NETMD_LOG_DEBUG, "Safety patch found at patch slot #%d\n", i);
                     safety_loaded   = 1;
                     used_patches[i] = PID_SAFETY;
                 }
@@ -662,6 +657,7 @@ static void netmd_safety_patch(netmd_dev_handle *devh)
                 // developer device
                 if ((patch.addr == 0xe6c0) || (patch.addr == 0xe69c))
                 {
+                    netmd_log(NETMD_LOG_DEBUG, "Dev patch found at patch slot #%d\n", i);
                     safety_loaded   = 1;
                     used_patches[i] = PID_SAFETY;
                 }
@@ -672,6 +668,7 @@ static void netmd_safety_patch(netmd_dev_handle *devh)
         {
             netmd_patch(devh, addr, patch_cnt, 4,
                         get_next_free_patch(PID_SAFETY));
+            netmd_log(NETMD_LOG_DEBUG, "Safety patch applied.\n");
         }
     }
 }
@@ -686,24 +683,31 @@ static void netmd_safety_patch(netmd_dev_handle *devh)
 //------------------------------------------------------------------------------
 static netmd_error netmd_enable_factory(netmd_dev_handle *devh)
 {
-    netmd_error ret  = NETMD_NO_ERROR;
-    uint8_t     p2[] = {0x00, 0x18, 0x09, 0x00, 0xff, 0x00, 0x00, 0x00,
-                        0x00, 0x00};
-    uint8_t     p3[] = {0x00, 0x18, 0x01, 0xff, 0x0e, 0x4e, 0x65, 0x74,
-                        0x20, 0x4d, 0x44, 0x20, 0x57, 0x61, 0x6c, 0x6b,
-                        0x6d, 0x61, 0x6e};
+    netmd_error ret   = NETMD_NO_ERROR;
+    uint8_t     p1[]  = {0x00, 0x18, 0x09, 0x00, 0xff, 0x00, 0x00, 0x00,
+                         0x00, 0x00};
+    size_t      qsz   = 0;
+    uint8_t*    query = netmd_format_query("00 1801 ff0e 4e6574204d442057616c6b6d616e", NULL, 0, &qsz);
+
 
     if (netmd_change_descriptor_state(devh, discSubunitIndentifier, nda_openread))
     {
         ret = NETMD_ERROR;
     }
-    if (netmd_send_message(devh, p2, sizeof(p2)))
+
+    netmd_set_factory_write(1);
+
+    if (netmd_exch_message(devh, p1, sizeof(p1), _s_buff))
     {
         ret = NETMD_ERROR;
     }
-    if (netmd_send_message(devh, p3, sizeof(p3)))
+    if (query != NULL)
     {
-        ret = NETMD_ERROR;
+        if (netmd_exch_message(devh, query, qsz, _s_buff))
+        {
+            ret = NETMD_ERROR;
+        }
+        free(query);
     }
 
     return ret;
@@ -729,9 +733,13 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     uint8_t*    reply  = NULL;
     sony_dev_info_t devcode;
 
+    netmd_log(NETMD_LOG_DEBUG, "Enable factory ...\n");
     netmd_enable_factory(devh);
+
+    netmd_log(NETMD_LOG_DEBUG, "Apply safety patch ...\n");
     netmd_safety_patch(devh);
 
+    netmd_log(NETMD_LOG_DEBUG, "Try to get device code ...\n");
     if ((devcode = netmd_get_device_code_ex(devh)) == SDI_S1200)
     {
         patch0 = PID_PATCH_0_B;
@@ -760,22 +768,27 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
 
     if (patch0 != PID_UNUSED)
     {
+        netmd_log(NETMD_LOG_DEBUG, "=== Apply patch 0 ===\n");
         netmd_patch(devh, get_patch_address(devcode, patch0),
                     get_patch_payload(devcode, PID_PATCH_0), 4,
                     get_next_free_patch(PID_PATCH_0));
 
+        netmd_log(NETMD_LOG_DEBUG, "=== Apply patch common 1 ===\n");
         netmd_patch(devh, get_patch_address(devcode, PID_PATCH_CMN_1),
                     get_patch_payload(devcode, PID_PATCH_CMN_1), 4,
                     get_next_free_patch(PID_PATCH_CMN_1));
 
+        netmd_log(NETMD_LOG_DEBUG, "=== Apply patch common 2 ===\n");
         netmd_patch(devh, get_patch_address(devcode, PID_PATCH_CMN_2),
                     get_patch_payload(devcode, PID_PATCH_CMN_2), 4,
                     get_next_free_patch(PID_PATCH_CMN_2));
 
+        netmd_log(NETMD_LOG_DEBUG, "=== Apply prep patch ===\n");
         netmd_patch(devh, get_patch_address(devcode, PID_PREP_PATCH),
                     get_patch_payload(devcode, PID_PREP_PATCH), 4,
                     get_next_free_patch(PID_PREP_PATCH));
 
+        netmd_log(NETMD_LOG_DEBUG, "=== Apply track type patch ===\n");
         reply    = get_patch_payload(devcode, PID_TRACK_TYPE);
         reply[1] = (chan_no == 1) ? 4 : 6; // mono or stereo
         netmd_patch(devh, get_patch_address(devcode, PID_TRACK_TYPE),
@@ -784,8 +797,10 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     else
     {
         ret = NETMD_ERROR;
-        netmd_log(NETMD_LOG_ERROR, "Can't figue out patch 0!\n");
+        netmd_log(NETMD_LOG_ERROR, "Can't figure out patch 0!\n");
     }
+
+    netmd_set_factory_write(0);
 
     return ret;
 }
@@ -797,9 +812,20 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
 //------------------------------------------------------------------------------
 void netmd_undo_sp_patch(netmd_dev_handle *devh)
 {
+    netmd_set_factory_write(1);
+    netmd_log(NETMD_LOG_DEBUG, "=== Undo patch 0 ===\n");
     netmd_unpatch(devh, PID_PATCH_0);
+
+    netmd_log(NETMD_LOG_DEBUG, "=== Undo patch common 1 ===\n");
     netmd_unpatch(devh, PID_PATCH_CMN_1);
+
+    netmd_log(NETMD_LOG_DEBUG, "=== Undo patch common 2 ===\n");
     netmd_unpatch(devh, PID_PATCH_CMN_2);
+
+    netmd_log(NETMD_LOG_DEBUG, "=== Undo prep patch ===\n");
     netmd_unpatch(devh, PID_PREP_PATCH);
+
+    netmd_log(NETMD_LOG_DEBUG, "=== Undo track type patch ===\n");
     netmd_unpatch(devh, PID_TRACK_TYPE);
+    netmd_set_factory_write(0);
 }
