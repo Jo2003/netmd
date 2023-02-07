@@ -1,22 +1,30 @@
-cmake_minimum_required(VERSION 3.20.2)
+cmake_minimum_required(VERSION 3.10.3)
 project(netmdcli)
 
-#For the shared library:
-link_directories( ${CMAKE_BINARY_DIR}/libnetmd )
+include(ExternalProject)
 
-SET(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}../winenv/lib/pkgconfig")
+set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
-#Bring the headers, into the project
-# include_directories(../libnetmd)
+ExternalProject_Add(JsonC
+    GIT_REPOSITORY https://github.com/json-c/json-c.git
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+)
+
+include_directories(
+    ${EXTERNAL_INSTALL_LOCATION}/include
+    ${CMAKE_SOURCE_DIR}/libnetmd
+)
+
+link_directories(
+    ${EXTERNAL_INSTALL_LOCATION}/lib
+    ${CMAKE_BINARY_DIR}/libnetmd
+)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(PkgConfig REQUIRED)
-
 IF (NOT APPLE)
-        SET(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}../winenv/lib/pkgconfig")
 	SET(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc")
 	SET(CMAKE_EXE_LINKER_FLAGS_DEBUG "-g")
 	SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-s")
@@ -24,22 +32,6 @@ ELSE()
 	SET(CMAKE_EXE_LINKER_FLAGS_DEBUG "-g")
 ENDIF()
 
-pkg_check_modules(JSONC REQUIRED json-c)
-
-set(IDIRS
-    ${JSONC_INCLUDE_DIRS}
-)
-
-set(LDIRS
-    ${JSONC_LIBRARY_DIRS}
-)
-
-set(SLIBS
-    ${JSONC_LIBRARIES}
-)
-
-link_directories(${LDIRS})
-include_directories(${IDIRS})
-
 add_executable(netmdcli netmdcli.c)
-target_link_libraries(netmdcli "snetmd" ${SLIBS})
+add_dependencies(netmdcli JsonC)
+target_link_libraries(netmdcli "snetmd" json-c)
