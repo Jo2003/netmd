@@ -88,7 +88,7 @@ int netmd_change_descriptor_state(netmd_dev_handle* devh, netmd_descriptor_t des
             uint8_t* query = netmd_format_query("00 1808 %* %b 00", data, 2, &qsz);
             if (query != NULL)
             {
-                ret = netmd_exch_message(devh, query, qsz, buff);
+                ret = netmd_exch_message(devh, query, qsz, buff) < 0;
                 free(query);
             }
         }
@@ -832,7 +832,7 @@ int netmd_release_dev(netmd_dev_handle* dev)
                                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     unsigned char reply[255];
 
-    ret = netmd_exch_message(dev, request, sizeof(request), reply);
+    ret = netmd_exch_message(dev, request, sizeof(request), reply) < 0;
     return ret;
 }
 

@@ -27,6 +27,16 @@
 #include <ctype.h>
 #include "netmdcli.h"
 
+// memcpy_s replacement
+#ifndef __STDC_LIB_EXT1__
+    int memcpy_s( void *restrict dest, size_t destsz,
+                  const void *restrict src, size_t count ){
+        memset(dest, 0, destsz);
+        memcpy(dest, src, count > destsz ? destsz : count);
+        return 0;
+    }
+#endif
+
 /** @brief audio patch type */
 typedef enum
 {
@@ -231,7 +241,7 @@ static int audio_supported(const unsigned char * file, size_t fsize, netmd_wiref
         if ((file[1] == 8) && (fsize > 2048))
         {
             *channels   = (file[264] == 2) ? NETMD_CHANNELS_STEREO      : NETMD_CHANNELS_MONO;
-            *diskformat = (file[264] == 2) ? NETMD_DISKFORMAT_SP_STEREO : NETMD_DISKFORMAT_SP_MONO;
+            *diskformat = NETMD_DISKFORMAT_LP2;
             *wireformat = NETMD_WIREFORMAT_105KBPS;
             *headersize = 2048;
             *conversion = apt_sp;
