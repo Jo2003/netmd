@@ -122,6 +122,11 @@ int netmd_exch_message(netmd_dev_handle *devh, unsigned char *cmd,
       netmd_log_hex(NETMD_LOG_DEBUG, &rsp[0], 1);
     }
 
+    // Verify the command's return state here.
+    if(rsp[0] == 0x0a || rsp[0] == 0x08){
+        return -rsp[0];
+    }
+
     return len;
 }
 

@@ -695,15 +695,16 @@ static netmd_error netmd_enable_factory(netmd_dev_handle *devh)
         ret = NETMD_ERROR;
     }
 
-    netmd_set_factory_write(1);
-
-    if (netmd_exch_message(devh, p1, sizeof(p1), _s_buff))
+    if (netmd_exch_message(devh, p1, sizeof(p1), _s_buff) < 0)
     {
         ret = NETMD_ERROR;
     }
+    
+    netmd_set_factory_write(1);
+
     if (query != NULL)
     {
-        if (netmd_exch_message(devh, query, qsz, _s_buff))
+        if (netmd_exch_message(devh, query, qsz, _s_buff) < 0)
         {
             ret = NETMD_ERROR;
         }
@@ -734,7 +735,10 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     sony_dev_info_t devcode;
 
     netmd_log(NETMD_LOG_DEBUG, "Enable factory ...\n");
-    netmd_enable_factory(devh);
+    ret = netmd_enable_factory(devh);
+    if(ret){
+        return ret;
+    }
 
     netmd_log(NETMD_LOG_DEBUG, "Apply safety patch ...\n");
     netmd_safety_patch(devh);
