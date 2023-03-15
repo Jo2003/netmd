@@ -793,7 +793,7 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     char title[256] = { 0 };
 
     size_t headersize, channels;
-    unsigned int frames;
+    unsigned int frames, override_frames = 0;
     size_t data_position, audio_data_position, audio_data_size, i;
     audio_patch_t audio_patch = apt_no_patch;
     unsigned char * audio_data;
@@ -845,6 +845,7 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
         netmd_log(NETMD_LOG_VERBOSE, "supported audio file detected\n");
         if (audio_patch == apt_sp)
         {
+            override_frames = (data_size - 2048) / 212;
             if (netmd_prepare_audio_sp_upload(&data, &data_size) != NETMD_NO_ERROR)
             {
                 netmd_log(NETMD_LOG_ERROR, "cannot prepare ATRAC1 audio data for SP transfer!\n");
@@ -970,6 +971,9 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     {
         discformat = onTheFlyConvert;
     }
+
+    if(override_frames)
+        frames = override_frames;
 
     /* send to device */
     error = netmd_secure_send_track(devh, wireformat,
