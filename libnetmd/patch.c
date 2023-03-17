@@ -737,6 +737,7 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     netmd_log(NETMD_LOG_DEBUG, "Enable factory ...\n");
     ret = netmd_enable_factory(devh);
     if(ret){
+        netmd_set_factory_write(0);
         return ret;
     }
 
@@ -832,4 +833,26 @@ void netmd_undo_sp_patch(netmd_dev_handle *devh)
     netmd_log(NETMD_LOG_DEBUG, "=== Undo track type patch ===\n");
     netmd_unpatch(devh, PID_TRACK_TYPE);
     netmd_set_factory_write(0);
+}
+
+//------------------------------------------------------------------------------
+//! @brief      check if device supports sp upload
+//!
+//! @param[in]  devh  device handle
+//!
+//! @return     0 -> no support; esle
+//------------------------------------------------------------------------------
+int netmd_dev_supports_sp_upload(netmd_dev_handle *devh)
+{
+    int ret = 0;
+    netmd_log(NETMD_LOG_DEBUG, "Enable factory ...\n");
+    if (netmd_enable_factory(devh) == NETMD_NO_ERROR)
+    {
+        if (netmd_get_device_code_ex(devh) != SDI_UNKNOWN)
+        {
+            ret = 1;
+        }
+    }
+    netmd_set_factory_write(0);
+    return ret;
 }

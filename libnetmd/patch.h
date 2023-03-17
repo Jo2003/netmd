@@ -38,4 +38,13 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no);
 //------------------------------------------------------------------------------
 void netmd_undo_sp_patch(netmd_dev_handle *devh);
 
+//------------------------------------------------------------------------------
+//! @brief      check if device supports sp upload
+//!
+//! @param[in]  devh  device handle
+//!
+//! @return     0 -> no support; esle
+//------------------------------------------------------------------------------
+int netmd_dev_supports_sp_upload(netmd_dev_handle *devh);
+
 #endif // PATCH_H
