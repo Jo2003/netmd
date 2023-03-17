@@ -666,12 +666,7 @@ uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[],
 
             case netmd_fmt_barray:
                 mSZ_CHECK;
-                if (memcpy(&out[byteIdx], argv[argno].data.pu8, argv[argno].size))
-                {
-                    // should never happen
-                    netmd_log(NETMD_LOG_ERROR, "Error: Data size exceeds prepared memory in %s!", __FUNCTION__);
-                    return ret;
-                }
+                memcpy(&out[byteIdx], argv[argno].data.pu8, argv[argno].size);
                 byteIdx += argv[argno++].size;
                 esc      = 0;
                 endian   = netmd_no_convert;

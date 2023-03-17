@@ -689,7 +689,6 @@ static netmd_error netmd_enable_factory(netmd_dev_handle *devh)
     size_t      qsz   = 0;
     uint8_t*    query = netmd_format_query("00 1801 ff0e 4e6574204d442057616c6b6d616e", NULL, 0, &qsz);
 
-
     if (netmd_change_descriptor_state(devh, discSubunitIndentifier, nda_openread))
     {
         ret = NETMD_ERROR;
@@ -848,8 +847,10 @@ int netmd_dev_supports_sp_upload(netmd_dev_handle *devh)
     netmd_log(NETMD_LOG_DEBUG, "Enable factory ...\n");
     if (netmd_enable_factory(devh) == NETMD_NO_ERROR)
     {
+        netmd_log(NETMD_LOG_DEBUG, "Get extended device info!\n");
         if (netmd_get_device_code_ex(devh) != SDI_UNKNOWN)
         {
+            netmd_log(NETMD_LOG_DEBUG, "Supported device!\n");
             ret = 1;
         }
     }
