@@ -73,4 +73,12 @@ int netmd_recv_message_ex(netmd_dev_handle *devh, unsigned char** rspPtr);
 */
 int netmd_wait_for_sync(netmd_dev_handle* dev);
 
+//------------------------------------------------------------------------------
+//! @brief      enable / disable factory write
+//!
+//! @param      devh    The devh
+//! @param      enable  1 to enable factory write, 0 to disable
+//------------------------------------------------------------------------------
+void netmd_set_factory_write(int enable);
+
 #endif

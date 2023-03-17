@@ -27,6 +27,24 @@
 #include <ctype.h>
 #include "netmdcli.h"
 
+// memcpy_s replacement
+#if !defined NO_MEMCPY_S_CHECK && !defined __STDC_LIB_EXT1__
+    int memcpy_s( void *restrict dest, size_t destsz,
+                  const void *restrict src, size_t count ){
+        memset(dest, 0, destsz);
+        memcpy(dest, src, count > destsz ? destsz : count);
+        return 0;
+    }
+#endif
+
+/** @brief audio patch type */
+typedef enum
+{
+    apt_no_patch, /**< no patch needed         */
+    apt_wave,     /**< wave endianess patch    */
+    apt_sp        /**< atrac1 SP padding patch */
+} audio_patch_t;
+
 #define NO_ONTHEFLY_CONVERSION 0xf
 
 static json_object *json;
@@ -214,14 +232,28 @@ static size_t wav_data_position(const unsigned char * data, size_t offset, size_
     return pos;
 }
 
-static int audio_supported(const unsigned char * file, netmd_wireformat * wireformat, unsigned char * diskformat, int * conversion, size_t * channels, size_t * headersize)
+static int audio_supported(const unsigned char * file, size_t fsize, netmd_wireformat * wireformat, unsigned char * diskformat, audio_patch_t * conversion, size_t * channels, size_t * headersize)
 {
     if(strncmp("RIFF", (const char*)file, 4) != 0 || strncmp("WAVE", (const char*)file+8, 4) != 0 || strncmp("fmt ", (const char*)file+12, 4) != 0)
-        return 0;                                             /* no valid WAV file or fmt chunk missing*/
+    {
+        // no wave format, look for preencoded ATRAC1 (SP).
+        // I know the test is vague!
+        if ((file[1] == 8) && (fsize > 2048))
+        {
+            *channels   = (file[264] == 2) ? NETMD_CHANNELS_STEREO      : NETMD_CHANNELS_MONO;
+            *diskformat = NETMD_DISKFORMAT_LP2;
+            *wireformat = NETMD_WIREFORMAT_105KBPS;
+            *headersize = 2048;
+            *conversion = apt_sp;
+            return 1;
+        }
+        else
+            return 0;                                         /* no valid WAV file or fmt chunk missing*/
+    }
 
     if(leword16(file+20) == 1)                                /* PCM */
     {
-        *conversion = 1;                                      /* needs conversion (byte swapping) for pcm raw data from wav file*/
+        *conversion = apt_wave;                               /* needs conversion (byte swapping) for pcm raw data from wav file*/
         *wireformat = NETMD_WIREFORMAT_PCM;
         if(leword32(file+24) != 44100)                        /* sample rate not 44k1*/
             return 0;
@@ -243,7 +275,7 @@ static int audio_supported(const unsigned char * file, netmd_wireformat * wirefo
 
     if(leword16(file +20) == NETMD_RIFF_FORMAT_TAG_ATRAC3)         /* ATRAC3 */
     {
-        *conversion = 0;                                           /* conversion not needed */
+        *conversion = apt_no_patch;                                /* conversion not needed */
         if(leword32(file+24) != 44100)                             /* sample rate */
             return 0;
         if(leword16(file+32) == NETMD_DATA_BLOCK_SIZE_LP2) {       /* data block size LP2 */
@@ -761,9 +793,9 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     char title[256] = { 0 };
 
     size_t headersize, channels;
-    unsigned int frames;
+    unsigned int frames, override_frames = 0;
     size_t data_position, audio_data_position, audio_data_size, i;
-    int need_conversion = 1/*, file_valid = 0*/;
+    audio_patch_t audio_patch = apt_no_patch;
     unsigned char * audio_data;
     netmd_wireformat wireformat;
     unsigned char discformat;
@@ -802,34 +834,65 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     fclose(f);
 
     /* check contents */
-    if (!audio_supported(data, &wireformat, &discformat, &need_conversion, &channels, &headersize)) {
+    if (!audio_supported(data, data_size, &wireformat, &discformat, &audio_patch, &channels, &headersize)) {
         netmd_log(NETMD_LOG_ERROR, "audio file unknown or not supported\n");
         free(data);
 
         return NETMD_ERROR;
     }
-    else {
+    else
+    {
         netmd_log(NETMD_LOG_VERBOSE, "supported audio file detected\n");
-        if ((data_position = wav_data_position(data, headersize, data_size)) == 0) {
+        if (audio_patch == apt_sp)
+        {
+            override_frames = (data_size - 2048) / 212;
+            if (netmd_prepare_audio_sp_upload(&data, &data_size) != NETMD_NO_ERROR)
+            {
+                netmd_log(NETMD_LOG_ERROR, "cannot prepare ATRAC1 audio data for SP transfer!\n");
+                free(data);
+                return NETMD_ERROR;
+            }
+            else
+            {
+                // data returned by prepare function has no header
+                audio_data = data;
+                audio_data_size = data_size;
+                netmd_log(NETMD_LOG_VERBOSE, "prepared audio data size: %d bytes\n", audio_data_size);
+            }
+        }
+        else if ((data_position = wav_data_position(data, headersize, data_size)) == 0)
+        {
             netmd_log(NETMD_LOG_ERROR, "cannot locate audio data in file\n");
             free(data);
 
             return NETMD_ERROR;
         }
-        else {
+        else
+        {
             netmd_log(NETMD_LOG_VERBOSE, "data chunk position at %d\n", data_position);
             audio_data_position = data_position + 8;
             audio_data = data + audio_data_position;
             audio_data_size = leword32(data + (data_position + 4));
             netmd_log(NETMD_LOG_VERBOSE, "audio data size read from file :           %d bytes\n", audio_data_size);
             netmd_log(NETMD_LOG_VERBOSE, "audio data size calculated from file size: %d bytes\n", data_size - audio_data_position);
-
         }
     }
 
     /* acquire device - needed by Sharp devices, may fail on Sony devices */
     error = netmd_acquire_dev(devh);
     netmd_log(NETMD_LOG_VERBOSE, "netmd_acquire_dev: %s\n", netmd_strerror(error));
+
+    if (audio_patch == apt_sp)
+    {
+        if (netmd_apply_sp_patch(devh, (channels == NETMD_CHANNELS_STEREO) ? 2 : 1) != NETMD_NO_ERROR)
+        {
+            netmd_log(NETMD_LOG_ERROR, "Can't patch NetMD device for SP transfer, exiting!\n");
+            free(data);
+            netmd_undo_sp_patch(devh);
+            netmd_release_dev(devh);
+            return NETMD_ERROR;
+        }
+    }
 
     error = netmd_secure_leave_session(devh);
     netmd_log(NETMD_LOG_VERBOSE, "netmd_secure_leave_session : %s\n", netmd_strerror(error));
@@ -890,7 +953,7 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     netmd_log(NETMD_LOG_VERBOSE, "netmd_secure_setup_download : %s\n", netmd_strerror(error));
 
     /* conversion (byte swapping) for pcm raw data from wav file if needed */
-    if (need_conversion)
+    if (audio_patch == apt_wave)
     {
         for (i = 0; i < audio_data_size; i += 2)
         {
@@ -908,6 +971,9 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     {
         discformat = onTheFlyConvert;
     }
+
+    if(override_frames)
+        frames = override_frames;
 
     /* send to device */
     error = netmd_secure_send_track(devh, wireformat,
@@ -965,6 +1031,11 @@ netmd_error send_track(netmd_dev_handle *devh, const char *filename, const char 
     /* leave session */
     cleanup_error = netmd_secure_leave_session(devh);
     netmd_log(NETMD_LOG_VERBOSE, "netmd_secure_leave_session : %s\n", netmd_strerror(cleanup_error));
+
+    if (audio_patch == apt_sp)
+    {
+        netmd_undo_sp_patch(devh);
+    }
 
     /* release device - needed by Sharp devices, may fail on Sony devices */
     cleanup_error = netmd_release_dev(devh);
@@ -1042,6 +1113,65 @@ void netmd_cli_set_json_fd(FILE* fd)
     json_fd = fd;
 }
 
+void test_new_utils()
+{
+    uint8_t *query = NULL;
+    size_t   qsz   = 0;
+    uint32_t addr  = 0x01020304;
+    uint8_t  data[] = {0xde, 0xad, 0xbe, 0xef, 0x4e};
+
+    netmd_query_data_t argv[] = {
+        {{.u32 = addr                                     }, sizeof(uint32_t)},
+        {{.u8  = 5                                        }, sizeof(uint8_t) },
+        {{.pu8 = data                                     }, 5               },
+        {{.u16 = netmd_calculate_checksum(data, 5)        }, sizeof(uint16_t)},
+    };
+
+    int argc = sizeof(argv) / sizeof(argv[0]);
+    query = netmd_format_query("00 1822 ff 00 %<d %b 0000 %* %<w", argv, argc, &qsz);
+
+    if (query != NULL)
+    {
+        netmd_log_hex(NETMD_LOG_ALL, query, qsz);
+
+        netmd_capture_data_t *capture = NULL;
+        int                   cap_sz  = 0;
+
+        netmd_scan_query(query, qsz, "%? 1822 ff %b %w %? %? %b 0000 %*", &capture, &cap_sz);
+        netmd_log(NETMD_LOG_ALL, "Scan gives following values:\n");
+        if (capture != NULL)
+        {
+            for(int i = 0; i < cap_sz; i++)
+            {
+                switch(capture[i].tp)
+                {
+                case netmd_fmt_byte:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Byte: 0x%.02x\n", i, (int)capture[i].data.u8);
+                    break;
+                case netmd_fmt_word:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Word: 0x%.04x\n", i, capture[i].data.u16);
+                    break;
+                case netmd_fmt_dword:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, DWord: 0x%.08x\n", i, capture[i].data.u32);
+                    break;
+                case netmd_fmt_qword:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, QWord: 0x%.016x\n", i, capture[i].data.u64);
+                    break;
+                case netmd_fmt_barray:
+                    netmd_log(NETMD_LOG_ALL, "Cap %d, Byte Array: ", i);
+                    netmd_log_hex(NETMD_LOG_ALL, capture[i].data.pu8, capture[i].size);
+                    free(capture[i].data.pu8);
+                    break;
+                default:
+                    break;
+                }
+            }
+            free(capture);
+        }
+        free(query);
+    }
+}
+
 int run_me(int argc, char* argv[])
 {
     netmd_dev_handle* devh;
@@ -1066,10 +1196,14 @@ int run_me(int argc, char* argv[])
         opterr = 0;
         optind = 1;
 
-        while ((c = getopt (argc, argv, "tvd:")) != -1)
+        while ((c = getopt (argc, argv, "tvd:Y")) != -1)
         {
             switch (c)
             {
+            case 'Y':
+                test_new_utils();
+                return 0;
+                break;
             case 't':
                 netmd_set_log_level(NETMD_LOG_ALL);
                 break;

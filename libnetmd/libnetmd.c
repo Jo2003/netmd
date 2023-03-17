@@ -51,6 +51,51 @@ struct netmd_pair const bitrates[] =
 
 struct netmd_pair const unknown_pair = {0x00, "UNKNOWN"};
 
+static netmd_descr_val_t netmd_descriptor_states[] = {
+    {discTitleTD           , {0x10, 0x18, 0x01}, 3},
+    {audioUTOC1TD          , {0x10, 0x18, 0x02}, 3},
+    {audioUTOC4TD          , {0x10, 0x18, 0x03}, 3},
+    {DSITD                 , {0x10, 0x18, 0x04}, 3},
+    {audioContentsTD       , {0x10, 0x10, 0x01}, 3},
+    {rootTD                , {0x10, 0x10, 0x00}, 3},
+    {discSubunitIndentifier, {0x00, 0x00, 0x00}, 1},
+    {operatingStatusBlock  , {0x80, 0x00, 0x00}, 2},
+};
+static const size_t netmd_descr_count = sizeof(netmd_descriptor_states) / sizeof(netmd_descriptor_states[0]);
+
+//------------------------------------------------------------------------------
+//! @brief      change descriptor state
+//!
+//! @param      devh[in]   device handle
+//! @param      descr[in]  descriptor
+//! @param      act[in]    descriptor action
+//!
+//! @return     0 -> ok; -1 -> error
+//------------------------------------------------------------------------------
+int netmd_change_descriptor_state(netmd_dev_handle* devh, netmd_descriptor_t descr, netmd_descriptor_action_t act)
+{
+    int ret = -1;
+    uint8_t buff[255];
+    for (size_t i = 0; i < netmd_descr_count; i++)
+    {
+        if (netmd_descriptor_states[i].descr == descr)
+        {
+            netmd_query_data_t data[] = {
+                {{.pu8 = netmd_descriptor_states[i].data}, netmd_descriptor_states[i].sz},
+                {{.u8  = act                            }, 1                            }
+            };
+            size_t   qsz   = 0;
+            uint8_t* query = netmd_format_query("00 1808 %* %b 00", data, 2, &qsz);
+            if (query != NULL)
+            {
+                ret = netmd_exch_message(devh, query, qsz, buff) < 0;
+                free(query);
+            }
+        }
+    }
+    return ret;
+}
+
 struct netmd_pair const* find_pair(int hex, struct netmd_pair const* array)
 {
     int i = 0;
@@ -787,7 +832,7 @@ int netmd_release_dev(netmd_dev_handle* dev)
                                0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     unsigned char reply[255];
 
-    ret = netmd_exch_message(dev, request, sizeof(request), reply);
+    ret = netmd_exch_message(dev, request, sizeof(request), reply) < 0;
     return ret;
 }
 
