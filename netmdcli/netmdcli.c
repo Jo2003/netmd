@@ -28,7 +28,7 @@
 #include "netmdcli.h"
 
 // memcpy_s replacement
-#ifndef __STDC_LIB_EXT1__
+#if !defined NO_MEMCPY_S_CHECK && !defined __STDC_LIB_EXT1__
     int memcpy_s( void *restrict dest, size_t destsz,
                   const void *restrict src, size_t count ){
         memset(dest, 0, destsz);
