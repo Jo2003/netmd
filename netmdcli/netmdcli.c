@@ -27,16 +27,6 @@
 #include <ctype.h>
 #include "netmdcli.h"
 
-// memcpy_s replacement
-#if !defined NO_MEMCPY_S_CHECK && !defined __STDC_LIB_EXT1__
-    int memcpy_s( void *restrict dest, size_t destsz,
-                  const void *restrict src, size_t count ){
-        memset(dest, 0, destsz);
-        memcpy(dest, src, count > destsz ? destsz : count);
-        return 0;
-    }
-#endif
-
 /** @brief audio patch type */
 typedef enum
 {

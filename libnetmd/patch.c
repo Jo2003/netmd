@@ -296,7 +296,7 @@ static uint8_t* patch_read(netmd_dev_handle *devh, uint32_t addr, size_t data_si
                 *reply_size = cap_argv[0].size - 2;
                 if ((reply = malloc(*reply_size)) != NULL)
                 {
-                    memcpy_s(reply, *reply_size, cap_argv[0].data.pu8, *reply_size);
+                    memcpy(reply, cap_argv[0].data.pu8, *reply_size);
                 }
                 else
                 {
@@ -475,7 +475,7 @@ static netmd_error netmd_read_patch(netmd_dev_handle *devh, int patch_number, pa
     {
         if (rsz >= 4)
         {
-            memcpy_s(patch->data, 4, reply, 4);
+            memcpy(patch->data, reply, 4);
             ret ++;
         }
         free(reply);

@@ -666,7 +666,7 @@ uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[],
 
             case netmd_fmt_barray:
                 mSZ_CHECK;
-                if (memcpy_s(&out[byteIdx], mBUFFSZ - byteIdx, argv[argno].data.pu8, argv[argno].size))
+                if (memcpy(&out[byteIdx], argv[argno].data.pu8, argv[argno].size))
                 {
                     // should never happen
                     netmd_log(NETMD_LOG_ERROR, "Error: Data size exceeds prepared memory in %s!", __FUNCTION__);
@@ -696,7 +696,7 @@ uint8_t* netmd_format_query(const char* format, const netmd_query_data_t argv[],
         *query_sz = byteIdx;
         if ((ret = malloc(byteIdx)) != NULL)
         {
-            memcpy_s(ret, byteIdx, out, byteIdx);
+            memcpy(ret, out, byteIdx);
             netmd_log(NETMD_LOG_DEBUG, "Created query: ");
             netmd_log_hex(NETMD_LOG_DEBUG, ret, byteIdx);
         }
@@ -848,7 +848,7 @@ int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netm
                 pArgv->size = size - dataIdx;
                 if ((pArgv->data.pu8 = malloc(pArgv->size)) != NULL)
                 {
-                    memcpy_s(pArgv->data.pu8, pArgv->size, &data[dataIdx], pArgv->size);
+                    memcpy(pArgv->data.pu8, &data[dataIdx], pArgv->size);
                 }
                 else
                 {
@@ -898,7 +898,7 @@ int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netm
 
         if ((*argv = malloc(cpsz)) != NULL)
         {
-            memcpy_s(*argv, cpsz, dataBuffer, cpsz);
+            memcpy(*argv, dataBuffer, cpsz);
         }
         else
         {
@@ -954,7 +954,7 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
             // sector size might be less than 2332 bytes
             sector_sz = ((in_sz - in_idx) >= 2332) ? 2332 : in_sz - in_idx;
             sector = &out_data[out_idx];
-            memcpy_s(sector, new_sz - out_idx, &in_data[in_idx], sector_sz);
+            memcpy(sector, &in_data[in_idx], sector_sz);
             out_idx += sector_sz;
 
             // Rewrite Block Size Mode and the number of Block Floating Units
@@ -966,7 +966,7 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
                 sector[j + 212 - 2] = sector[j + 1];
             }
 
-            memcpy_s(&out_data[out_idx], new_sz - out_idx, padding, PAD_SZ);
+            memcpy(&out_data[out_idx], padding, PAD_SZ);
             out_idx += PAD_SZ;
         }
 
