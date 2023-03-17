@@ -932,7 +932,6 @@ int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netm
 netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_size)
 {
 #define PAD_SZ 100
-    netmd_error ret = NETMD_ERROR;
     const uint8_t padding[PAD_SZ] = {0,};
     size_t   in_sz   = *data_size;
     uint8_t* in_data = *audio_data;
