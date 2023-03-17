@@ -524,6 +524,7 @@ void print_json_disc_info(netmd_device* dev, netmd_dev_handle* devh, HndMdHdr md
     json_object_object_add(json, "device",  json_object_new_string(dev->model));
     json_object_object_add(json, "title",   json_object_new_string(md_header_disc_title(md)));
     json_object_object_add(json, "otf_enc",  json_object_new_int(dev->otf_conv));
+    json_object_object_add(json, "sp_upload",  json_object_new_int(netmd_dev_supports_sp_upload(devh)));
 
     uint16_t tc = 0;
     if (netmd_request_track_count(devh, &tc) == 0)
