@@ -941,7 +941,7 @@ netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_siz
 
     // get final memory size incl. padding
     double temp_sz = in_sz;
-    size_t new_sz = ceil(temp_sz / 2332) * 100 + temp_sz;
+    size_t new_sz = ceil(temp_sz / 2332.0) * 100 + temp_sz;
     if((out_data = malloc(new_sz)) != NULL)
     {
         for (in_idx = 0; in_idx < in_sz; in_idx += 2332)
