@@ -30,9 +30,12 @@
 //! @brief supported firmware on Sony devices
 typedef enum
 {
-    SDI_UNKNOWN,    //!< unsupported or unknown
-    SDI_S1200,      //!< S1.200 version
-    SDI_S1600,      //!< S1.600 version
+    SDI_S1200   = (1ul <<  0),    //!< S1.200 version
+    SDI_S1300   = (1ul <<  1),    //!< S1.300 version
+    SDI_S1400   = (1ul <<  2),    //!< S1.400 version
+    SDI_S1500   = (1ul <<  3),    //!< S1.500 version
+    SDI_S1600   = (1ul <<  4),    //!< S1.600 version
+    SDI_UNKNOWN = (1ul << 31),    //!< unsupported or unknown
 } sony_dev_info_t;
 
 //! @brief patch id
@@ -71,22 +74,15 @@ typedef struct
 {
     patch_id_t pid;
     int addr_count;
-    patch_addr_t addrs[2];
+    patch_addr_t addrs[5];
 } patch_addr_entry_t;
-
-//! @brief patch payload for one device
-typedef struct
-{
-    sony_dev_info_t devinfo;
-    uint8_t payload[4];
-} patch_payload_t;
 
 //! @brief patch payload table entry (used in array / table)
 typedef struct
 {
     patch_id_t pid;
-    int patch_count;
-    patch_payload_t patch[2];
+    uint32_t devices;
+    uint8_t payload[4];
 } patch_payload_entry_t;
 
 //!< @brief structure to hold all information of a patch
@@ -100,26 +96,26 @@ typedef struct
 
 //! @brief patch address table
 static patch_addr_entry_t patch_addr_tab[] = {
-    {PID_DEVTYPE    , 1, {{SDI_S1600, 0x02003fcf},{SDI_S1200, 0x00      }}},
-    {PID_PATCH_0_A  , 1, {{SDI_S1600, 0x0007f408},{SDI_S1200, 0x00      }}},
-    {PID_PATCH_0_B  , 2, {{SDI_S1600, 0x0007efec},{SDI_S1200, 0x00078dcc}}},
-    {PID_PREP_PATCH , 2, {{SDI_S1600, 0x00077c04},{SDI_S1200, 0x00071e5c}}},
-    {PID_PATCH_CMN_1, 2, {{SDI_S1600, 0x0007f4e8},{SDI_S1200, 0x00078eac}}},
-    {PID_PATCH_CMN_2, 2, {{SDI_S1600, 0x0007f4ec},{SDI_S1200, 0x00078eb0}}},
-    {PID_TRACK_TYPE , 2, {{SDI_S1600, 0x000852b0},{SDI_S1200, 0x0007ea9c}}},
-    {PID_SAFETY     , 1, {{SDI_S1600, 0x000000c4},{SDI_S1200, 0x00      }}}, //< anti brick patch
+    {PID_DEVTYPE    , 4, {{SDI_S1600, 0x02003fcf},{SDI_S1500, 0x02003fc7},{SDI_S1400, 0x03000220},{SDI_S1300, 0x02003e97},{SDI_S1200, 0x00      }}},
+    {PID_PATCH_0_A  , 4, {{SDI_S1600, 0x0007f408},{SDI_S1500, 0x0007e988},{SDI_S1400, 0x0007e2c8},{SDI_S1300, 0x0007aa00},{SDI_S1200, 0x00      }}},
+    {PID_PATCH_0_B  , 5, {{SDI_S1600, 0x0007efec},{SDI_S1500, 0x0007e56c},{SDI_S1400, 0x0007deac},{SDI_S1300, 0x0007a5e4},{SDI_S1200, 0x00078dcc}}},
+    {PID_PREP_PATCH , 5, {{SDI_S1600, 0x00077c04},{SDI_S1500, 0x0007720c},{SDI_S1400, 0x00076b38},{SDI_S1300, 0x00073488},{SDI_S1200, 0x00071e5c}}},
+    {PID_PATCH_CMN_1, 5, {{SDI_S1600, 0x0007f4e8},{SDI_S1500, 0x0007ea68},{SDI_S1400, 0x0007e3a8},{SDI_S1300, 0x0007aae0},{SDI_S1200, 0x00078eac}}},
+    {PID_PATCH_CMN_2, 5, {{SDI_S1600, 0x0007f4ec},{SDI_S1500, 0x0007ea6c},{SDI_S1400, 0x0007e3ac},{SDI_S1300, 0x0007aae4},{SDI_S1200, 0x00078eb0}}},
+    {PID_TRACK_TYPE , 5, {{SDI_S1600, 0x000852b0},{SDI_S1500, 0x00084820},{SDI_S1400, 0x00084160},{SDI_S1300, 0x00080798},{SDI_S1200, 0x0007ea9c}}},
+    {PID_SAFETY     , 4, {{SDI_S1600, 0x000000c4},{SDI_S1500, 0x000000c4},{SDI_S1400, 0x000000c4},{SDI_S1300, 0x000000c4},{SDI_S1200, 0x00      }}}, //< anti brick patch
 };
 //! @brief patch address table size
 static const size_t patch_addr_tab_size = sizeof(patch_addr_tab) / sizeof(patch_addr_tab[0]);
 
 //! @brief patch payload table
 static patch_payload_entry_t patch_payload_tab[] = {
-    {PID_PATCH_0    , 2, {{SDI_S1200, {0x00,0x00,0xa0,0xe1}}, {SDI_S1600, {0x00,0x00,0xa0,0xe1}}}},
-    {PID_PREP_PATCH , 2, {{SDI_S1200, {0x0D,0x31,0x01,0x60}}, {SDI_S1600, {0x0D,0x31,0x01,0x60}}}},
-    {PID_PATCH_CMN_1, 2, {{SDI_S1200, {0x14,0x80,0x80,0x03}}, {SDI_S1600, {0x14,0x80,0x80,0x03}}}},
-    {PID_PATCH_CMN_2, 2, {{SDI_S1200, {0x14,0x90,0x80,0x03}}, {SDI_S1600, {0x14,0x90,0x80,0x03}}}},
-    {PID_TRACK_TYPE , 2, {{SDI_S1200, {0x06,0x02,0x00,0x04}}, {SDI_S1600, {0x06,0x02,0x00,0x04}}}},
-    {PID_SAFETY     , 1, {{SDI_S1600, {0xdc,0xff,0xff,0xea}}, {SDI_S1200, {0x00,0x00,0x00,0x00}}}}, //< anti brick patch
+    {PID_PATCH_0    , SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x00,0x00,0xa0,0xe1}},
+    {PID_PREP_PATCH , SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x0D,0x31,0x01,0x60}},
+    {PID_PATCH_CMN_1, SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x14,0x80,0x80,0x03}},
+    {PID_PATCH_CMN_2, SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x14,0x90,0x80,0x03}},
+    {PID_TRACK_TYPE , SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x06,0x02,0x00,0x04}},
+    {PID_SAFETY     ,             SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0xdc,0xff,0xff,0xea}}, //< anti brick patch
 };
 //! @brief patch payload table size
 static const size_t patch_payload_tab_size = sizeof(patch_payload_tab) / sizeof(patch_payload_tab[0]);
@@ -190,12 +186,9 @@ static uint8_t* get_patch_payload(sony_dev_info_t devinfo, patch_id_t pid)
     {
         if (patch_payload_tab[i].pid == pid)
         {
-            for (int j = 0; j < patch_payload_tab[i].patch_count; j++)
+            if (devinfo & patch_payload_tab[i].devices)
             {
-                if (patch_payload_tab[i].patch[j].devinfo == devinfo)
-                {
-                    return patch_payload_tab[i].patch[j].payload;
-                }
+                return patch_payload_tab[i].payload;
             }
         }
     }
@@ -438,6 +431,18 @@ static sony_dev_info_t netmd_get_device_code_ex(netmd_dev_handle *devh)
         else if (!strncmp(code, "S1.200", 6))
         {
             ret = SDI_S1200;
+        }
+        else if (!strncmp(code, "S1.300", 6))
+        {
+            ret = SDI_S1300;
+        }
+        else if (!strncmp(code, "S1.400", 6))
+        {
+            ret = SDI_S1400;
+        }
+        else if (!strncmp(code, "S1.500", 6))
+        {
+            ret = SDI_S1500;
         }
     }
 
@@ -748,7 +753,7 @@ netmd_error netmd_apply_sp_patch(netmd_dev_handle *devh, int chan_no)
     {
         patch0 = PID_PATCH_0_B;
     }
-    else if (devcode == SDI_S1600)
+    else if (devcode != SDI_UNKNOWN)
     {
         if ((addr = get_patch_address(devcode, PID_DEVTYPE)) != 0)
         {
