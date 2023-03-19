@@ -115,7 +115,7 @@ static patch_payload_entry_t patch_payload_tab[] = {
     {PID_PATCH_CMN_1, SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x14,0x80,0x80,0x03}},
     {PID_PATCH_CMN_2, SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x14,0x90,0x80,0x03}},
     {PID_TRACK_TYPE , SDI_S1200 | SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0x06,0x02,0x00,0x04}},
-    {PID_SAFETY     ,             SDI_S1300 | SDI_S1400 | SDI_S1500 | SDI_S1600, {0xdc,0xff,0xff,0xea}}, //< anti brick patch
+    {PID_SAFETY     ,                         SDI_S1400 | SDI_S1500 | SDI_S1600, {0xdc,0xff,0xff,0xea}}, //< anti brick patch
 };
 //! @brief patch payload table size
 static const size_t patch_payload_tab_size = sizeof(patch_payload_tab) / sizeof(patch_payload_tab[0]);
