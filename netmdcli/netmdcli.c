@@ -126,6 +126,7 @@ static void handle_secure_cmd(netmd_dev_handle* devh, int cmdid, int track)
 }
 #endif
 
+#ifndef NO_PROGRAM
 static void send_raw_message(netmd_dev_handle* devh, char *pszRaw)
 {
     unsigned char cmd[255], rsp[255];
@@ -160,6 +161,22 @@ static void send_raw_message(netmd_dev_handle* devh, char *pszRaw)
         return;
     }
 }
+
+static int check_args(int argc, int min_argc, const char *text)
+{
+    /* n is the original argc, incl. program name */
+    if (argc > min_argc) {
+        return 1;
+    }
+    netmd_log(NETMD_LOG_ERROR, "Error: %s requires at least %d arguments\n", text, min_argc);
+    return 0;
+}
+
+static time_t toSec(netmd_time* t)
+{
+    return (t->hour * 3600) + (t->minute * 60) + t->second;
+}
+#endif /* NO_PROGRAM */
 
 void print_time(const netmd_time *time)
 {
@@ -278,16 +295,6 @@ static int audio_supported(const unsigned char * file, size_t fsize, netmd_wiref
     return 0;
 }
 
-static int check_args(int argc, int min_argc, const char *text)
-{
-    /* n is the original argc, incl. program name */
-    if (argc > min_argc) {
-        return 1;
-    }
-    netmd_log(NETMD_LOG_ERROR, "Error: %s requires at least %d arguments\n", text, min_argc);
-    return 0;
-}
-
 void print_current_track_info(netmd_dev_handle* devh)
 {
     uint16_t track;
@@ -383,11 +390,6 @@ void print_disc_info(netmd_dev_handle* devh, HndMdHdr md)
             i + 1, name, time_buf, 
             trprot->name, bitrate->name);
     }
-}
-
-static time_t toSec(netmd_time* t)
-{
-    return (t->hour * 3600) + (t->minute * 60) + t->second;
 }
 
 void import_m3u_playlist(netmd_dev_handle* devh, const char *file)

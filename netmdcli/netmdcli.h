@@ -18,11 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-#include <unistd.h>
-#include <stdint.h>
+#ifndef __NETMDCLI_H
+    #define __NETMDCLI_H
 #include <libnetmd.h>
 #include <utils.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,3 +30,4 @@ netmd_error netmd_cli_send_track(netmd_dev_handle *devh, const char *filename, c
 #ifdef __cplusplus
 }
 #endif
+#endif /* __NETMDCLI_H */
