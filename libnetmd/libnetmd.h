@@ -169,7 +169,7 @@ int netmd_move_track(netmd_dev_handle* dev, const uint16_t start, const uint16_t
    @param title buffer holding the name.
    @return returns 0 for fail 1 for success.
 */
-int netmd_set_group_title(netmd_dev_handle* dev, HndMdHdr md, unsigned int group, char* title);
+int netmd_set_group_title(netmd_dev_handle* dev, HndMdHdr md, unsigned int group, const char* title);
 
 /**
    sets up buffer containing group info.

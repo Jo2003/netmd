@@ -20,15 +20,14 @@
  */
 #include <unistd.h>
 #include <stdint.h>
-#include "../libnetmd/libnetmd.h"
-#include "../libnetmd/utils.h"
+#include <libnetmd.h>
+#include <utils.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-void netmd_cli_set_json_fd(FILE* fd);
 void netmd_cli_set_log_fd(FILE* fd);
-int run_me(int argc, char* argv[]);
+netmd_error netmd_cli_send_track(netmd_dev_handle *devh, const char *filename, const char *in_title, unsigned char onTheFlyConvert);
 #ifdef __cplusplus
 }
 #endif

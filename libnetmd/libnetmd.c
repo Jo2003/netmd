@@ -356,7 +356,7 @@ int netmd_move_track(netmd_dev_handle* dev, const uint16_t start, const uint16_t
     return 1;
 }
 
-int netmd_set_group_title(netmd_dev_handle* dev, HndMdHdr md, unsigned int group, char* title)
+int netmd_set_group_title(netmd_dev_handle* dev, HndMdHdr md, unsigned int group, const char* title)
 {
     if (md_header_rename_group(md, group, title) == 0)
     {
