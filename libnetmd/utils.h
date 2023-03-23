@@ -7,6 +7,8 @@
 
 #include "error.h"
 
+/* copy start */
+
 typedef struct {
         unsigned char content[255];
         size_t length;
@@ -251,4 +253,6 @@ int netmd_scan_query(const uint8_t data[], size_t size, const char* format, netm
 //------------------------------------------------------------------------------
 netmd_error netmd_prepare_audio_sp_upload(uint8_t** audio_data, size_t* data_size);
 
-#endif
+/* copy end */
+
+#endif /* UTILS_H */

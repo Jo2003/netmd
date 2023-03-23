@@ -1,8 +1,10 @@
 /*
  * include this header file to get access to additional libnetmd members
  */
+#ifndef LIBNETMD_EXTENDED_H
+#define LIBNETMD_EXTENDED_H
 
-#include "libnetmd.h"
+#include "libnetmd_intern.h"
 
 typedef struct {
         unsigned char content[255];
@@ -35,3 +37,5 @@ unsigned char *netmd_copy_word_to_buffer(unsigned char **buf, uint16_t value, in
 unsigned char netmd_read(netmd_response *response);
 uint16_t netmd_read_word(netmd_response *response);
 uint32_t netmd_read_doubleword(netmd_response *response);
+
+#endif /* LIBNETMD_EXTENDED_H */

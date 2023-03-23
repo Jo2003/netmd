@@ -14,8 +14,9 @@
  * 
  * You should have received a copy of the GNU General Public License
  */
+#ifndef CMD_DISC_HEADER_H
+    #define CMD_DISC_HEADER_H
 #ifdef __cplusplus
-#pragma once
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -226,6 +227,8 @@ extern "C" {
 #include "log.h"
 #include <stdint.h>
 
+/* copy start */
+
 //! define a MD Header handle
 typedef void* HndMdHdr;
 
@@ -396,6 +399,9 @@ MDGroups* md_header_groups(HndMdHdr hdl);
 //------------------------------------------------------------------------------
 void md_header_free_groups(MDGroups** groups);
 
+/* copy end */
+
 #ifdef __cplusplus
 }
 #endif //  __cplusplus
+#endif // CMD_DISC_HEADER_H

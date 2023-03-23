@@ -4,6 +4,8 @@
 #include "error.h"
 #include "common.h"
 
+/* copy start */
+
 typedef struct netmd_device {
     struct netmd_device *link;
     char name[32];
@@ -65,5 +67,6 @@ netmd_error netmd_close(netmd_dev_handle* dev);
 */
 void netmd_clean(netmd_device **device_list);
 
+/* copy end */
 
-#endif
+#endif /* LIBNETMD_DEV_H */

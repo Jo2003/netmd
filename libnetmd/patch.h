@@ -20,6 +20,8 @@
 #include "common.h"
 #include "error.h"
 
+/* copy start */
+
 //------------------------------------------------------------------------------
 //! @brief      appy SP patch
 //!
@@ -46,5 +48,7 @@ void netmd_undo_sp_patch(netmd_dev_handle *devh);
 //! @return     0 -> no support; esle
 //------------------------------------------------------------------------------
 int netmd_dev_supports_sp_upload(netmd_dev_handle *devh);
+
+/* copy end */
 
 #endif // PATCH_H

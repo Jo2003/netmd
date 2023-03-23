@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+/* copy start */
+
 /**
    log level
 */
@@ -60,4 +62,6 @@ void netmd_log(netmd_loglevel level, const char* const fmt, ...);
  */
 void netmd_log_set_fd(FILE* fdid);
 
-#endif
+/* copy end */
+
+#endif /* LIBNETMD_TRACE_H */

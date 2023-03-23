@@ -7,6 +7,8 @@
 #include "common.h"
 #include "error.h"
 
+/* copy start */
+
 /**
    linked list to store a list of 16-byte keys
 */
@@ -199,4 +201,6 @@ void netmd_cleanup_packets(netmd_track_packets **packets);
 netmd_error netmd_secure_set_track_protection(netmd_dev_handle *dev,
                                               unsigned char mode);
 
-#endif
+/* copy end */
+
+#endif /* LIBNETMD_SECURE_H */

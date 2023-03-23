@@ -28,7 +28,7 @@
 #include "trackinformation.h"
 #include "utils.h"
 #include "log.h"
-#include "libnetmd.h"
+#include "libnetmd_intern.h"
 
 #include <stdlib.h>
 

@@ -1,6 +1,8 @@
 #ifndef CONST_H
 #define CONST_H
 
+/* copy start */
+
 /**
    Error codes of the USB transport layer
 */
@@ -80,9 +82,12 @@
 #define NETMD_DISKFORMAT_LP2 2
 #define NETMD_DISKFORMAT_SP_MONO 4
 #define NETMD_DISKFORMAT_SP_STEREO 6
+#define NO_ONTHEFLY_CONVERSION 0xf
 
 #define NETMD_RIFF_FORMAT_TAG_ATRAC3 0x270
 #define NETMD_DATA_BLOCK_SIZE_LP2 384
 #define NETMD_DATA_BLOCK_SIZE_LP4 192
+
+/* copy end */
 
 #endif

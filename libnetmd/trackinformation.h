@@ -5,6 +5,8 @@
 
 #include "common.h"
 
+/* copy start */
+
 /**
    Get the bitrate used to encode a specific track.
 
@@ -36,4 +38,6 @@ int netmd_request_track_flags(netmd_dev_handle* dev, const uint16_t track, unsig
 */
 int netmd_request_title(netmd_dev_handle* dev, const uint16_t track, char* buffer, const size_t size);
 
-#endif
+/* copy end */
+
+#endif /* LIBNETMD_TRACKINFORMATION_H */

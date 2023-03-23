@@ -3,6 +3,8 @@
 
 #include <libusb-1.0/libusb.h>
 
+/* copy start */
+
 /**
    Typedef that nearly all netmd_* functions use to identify the USB connection
    with the minidisc player.
@@ -81,4 +83,6 @@ int netmd_wait_for_sync(netmd_dev_handle* dev);
 //------------------------------------------------------------------------------
 void netmd_set_factory_write(int enable);
 
-#endif
+/* copy end */
+
+#endif /* LIBNETMD_COMMON_H */

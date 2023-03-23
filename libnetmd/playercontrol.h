@@ -5,6 +5,8 @@
 #include "common.h"
 #include "error.h"
 
+/* copy start */
+
 typedef struct {
     uint16_t hour;
     uint8_t minute;
@@ -146,4 +148,4 @@ netmd_error netmd_get_position(netmd_dev_handle* dev, netmd_time* time);
 netmd_error netmd_get_disc_capacity(netmd_dev_handle* dev,
                                     netmd_disc_capacity* capacity);
 
-#endif
+#endif /* LIBNETMD_PLAYERCONTROL_H */

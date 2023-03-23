@@ -19,7 +19,7 @@
 #include "patch.h"
 #include "utils.h"
 #include "log.h"
-#include "libnetmd.h"
+#include "libnetmd_intern.h"
 
 // defines
 #define PERIPHERAL_BASE 0x03802000ul

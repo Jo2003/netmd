@@ -1,6 +1,8 @@
 #ifndef LIBNETMD_ERROR_H
 #define LIBNETMD_ERROR_H
 
+/* copy start */
+
 /**
    Enum with possible error codes the netmd_* functions could return.
 
@@ -40,4 +42,6 @@ typedef enum {
 */
 const char* netmd_strerror(netmd_error error);
 
-#endif
+/* copy end */
+
+#endif /* LIBNETMD_ERROR_H */

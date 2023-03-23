@@ -26,7 +26,7 @@
 #include <unistd.h>
 
 #include "common.h"
-#include "libnetmd.h"
+#include "libnetmd_intern.h"
 #include "log.h"
 #include "utils.h"
 
