@@ -27,6 +27,10 @@ if (NOT BUILD_SHARED_LIBS)
     set(BUILD_SHARED_LIBS OFF)
 endif()
 
+# STATIC or SHARED is decided by option BUILD_SHARED_LIBS = ON
+add_library(netmd ${LIB_SRC})
+target_link_libraries(netmd usb-1.0 gcrypt gpg-error)
+
 if (APPLE)
     target_include_directories(netmd PRIVATE
         /usr/local/Cellar/libusb/1.0.24/include
@@ -41,10 +45,6 @@ if (APPLE)
         /usr/local/lib
     )
 endif()
-
-# STATIC or SHARED is decided by option BUILD_SHARED_LIBS = ON
-add_library(netmd ${LIB_SRC})
-target_link_libraries(netmd usb-1.0 gcrypt gpg-error)
 
 if (WINDOWS)
     target_link_libraries(netmd ws2_32)
