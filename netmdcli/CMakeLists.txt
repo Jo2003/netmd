@@ -39,3 +39,17 @@ target_link_libraries(netmdcli netmd usb-1.0 gcrypt gpg-error)
 IF (WINDOWS)
     target_link_libraries(netmdcli ws2_32)
 endif()
+if (APPLE)
+    target_include_directories(netmdcli PRIVATE
+        /usr/local/Cellar/libusb/1.0.24/include
+        /usr/local/Cellar/libgcrypt/1.9.4_1/include
+        /usr/local/Cellar/libgpg-error/1.43/include
+        /usr/local/include
+    )
+    link_directories(netmdcli
+        /usr/local/Cellar/libusb/1.0.24/lib
+        /usr/local/Cellar/libgcrypt/1.9.4_1/lib
+        /usr/local/Cellar/libgpg-error/1.43/lib
+        /usr/local/lib
+    )
+endif()
