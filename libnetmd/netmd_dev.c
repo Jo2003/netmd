@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <libusb-1.0/libusb.h>
 
 #include "netmd_dev.h"
 #include "log.h"
@@ -163,11 +164,22 @@ netmd_error netmd_open(netmd_device *dev, netmd_dev_handle **dev_handle)
 netmd_error netmd_get_devname(netmd_dev_handle* devh, char *buf, size_t buffsize)
 {
     int result;
+    unsigned char pollbuf[4];
+    int	len;
+
+    len = netmd_poll((libusb_device_handle *)devh, pollbuf, 2, NULL);
+
+    if (len != 0)
+    {
+        netmd_log(NETMD_LOG_ERROR, "netmd_poll() device still busy!\n");
+        buf[0] = 0;
+        return NETMD_USB_ERROR;
+    }
 
     result = libusb_get_string_descriptor_ascii((libusb_device_handle *)devh, 2, (unsigned char *)buf, buffsize);
     if (result < 0) 
     {
-        netmd_log(NETMD_LOG_ERROR, "libusb_get_string_descriptor_asci failed, %s (%d)\n", strerror(errno), errno);
+        netmd_log(NETMD_LOG_ERROR, "libusb_get_string_descriptor_ascii failed, %s (%d)\n", strerror(errno), errno);
         buf[0] = 0;
         return NETMD_USB_ERROR;
     }

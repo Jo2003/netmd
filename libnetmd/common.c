@@ -60,7 +60,7 @@ void netmd_set_factory_write(int enable)
   @param tries maximum attempts to poll the minidisc
   @return if error <0, else number of bytes that md wants to send
 */
-static int netmd_poll(libusb_device_handle *dev, unsigned char *buf, int tries, uint16_t* fullLength)
+int netmd_poll(libusb_device_handle *dev, unsigned char *buf, int tries, uint16_t* fullLength)
 {
     /* original netmd poll sleep time was 1s, which lead to a print disc info
        taking ~50s on a JE780. Dropping down to 5ms dropped print disc info
