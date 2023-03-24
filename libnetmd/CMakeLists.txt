@@ -38,7 +38,7 @@ if (APPLE)
         /usr/local/Cellar/libgpg-error/1.43/include
         /usr/local/include
     )
-    link_directories(netmd
+    target_link_directories(netmd
         /usr/local/Cellar/libusb/1.0.24/lib
         /usr/local/Cellar/libgcrypt/1.9.4_1/lib
         /usr/local/Cellar/libgpg-error/1.43/lib
