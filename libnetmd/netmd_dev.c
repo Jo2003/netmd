@@ -164,6 +164,7 @@ netmd_error netmd_open(netmd_device *dev, netmd_dev_handle **dev_handle)
 netmd_error netmd_get_devname(netmd_dev_handle* devh, char *buf, size_t buffsize)
 {
     int result;
+    /*
     unsigned char pollbuf[4];
     int	len;
 
@@ -175,6 +176,7 @@ netmd_error netmd_get_devname(netmd_dev_handle* devh, char *buf, size_t buffsize
         buf[0] = 0;
         return NETMD_USB_ERROR;
     }
+    */
 
     result = libusb_get_string_descriptor_ascii((libusb_device_handle *)devh, 2, (unsigned char *)buf, buffsize);
     if (result < 0) 
