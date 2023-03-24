@@ -33,6 +33,7 @@ cat << EOF > ${FNAME}
 #include <stdio.h>
 #include <libusb-1.0/libusb.h>
 #include <stdint.h>
+#include <unistd.h>
 EOF
 
 openExtC()

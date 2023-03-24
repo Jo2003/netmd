@@ -88,7 +88,7 @@ static int netmd_poll(libusb_device_handle *dev, unsigned char *buf, int tries, 
         }
 
         if (i > 0) {
-            msleep(sleepytime);
+            netmd_sleep(sleepytime);
             sleepytime = 100;
         }
         if (i > 10) {
@@ -308,7 +308,7 @@ int netmd_wait_for_sync(netmd_dev_handle* devh)
             break;
         }
         
-        msleep(100);
+        netmd_sleep(100);
     } while (tries);
 
     if (tries == 0)

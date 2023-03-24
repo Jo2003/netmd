@@ -22,9 +22,9 @@ typedef struct {
 
 #ifdef WIN32
     #include <windows.h>
-    #define msleep(x) Sleep(x)
+    #define netmd_sleep(x) Sleep(x)
 #else
-    #define msleep(x) usleep(1000*x)
+    #define netmd_sleep(x) usleep(1000*x)
 #endif
 
 /**

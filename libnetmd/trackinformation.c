@@ -43,7 +43,7 @@ int netmd_request_track_bitrate(netmd_dev_handle*dev, const uint16_t track,
     // unsigned char flags;
     // struct netmd_track time;
 
-    msleep(5); // Sleep fixes 'unknown' bitrate being returned on many devices.
+    netmd_sleep(5); // Sleep fixes 'unknown' bitrate being returned on many devices.
 
     // Copy the track number into the request
     buf = cmd + 7;
