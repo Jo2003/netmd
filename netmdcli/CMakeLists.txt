@@ -15,9 +15,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/libnetmd
 )
 
-link_directories(
-    ${CMAKE_BINARY_DIR}/libnetmd
-)
+link_directories(${CMAKE_BINARY_DIR}/libnetmd)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -32,14 +30,20 @@ ELSEIF(APPLE)
 ELSEIF(LINUX)
     SET(CMAKE_EXE_LINKER_FLAGS_DEBUG "-g")
     SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "-s")
+    find_package(PkgConfig REQUIRED)
+	find_library(UDEV NAMES udev libudev Hint /usr/lib/x86_64-linux-gnu)
+	pkg_check_modules(USB REQUIRED libusb-1.0)
+	link_directories(${USB_LIBRARY_DIRS})
 ENDIF()
 
 add_executable(netmdcli netmdcli.c)
 target_link_libraries(netmdcli netmd usb-1.0 gcrypt gpg-error)
 IF (WINDOWS)
     target_link_libraries(netmdcli ws2_32)
-endif()
-if (APPLE)
+elseif (LINUX)
+	target_include_directories(netmdcli PRIVATE ${USB_INCLUDE_DIRS})
+	target_link_libraries(netmdcli udev pthread)
+elseif (APPLE)
     target_include_directories(netmdcli PRIVATE
         /usr/local/Cellar/libusb/1.0.24/include
         /usr/local/Cellar/libgcrypt/1.9.4_1/include
