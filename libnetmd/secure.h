@@ -151,7 +151,6 @@ netmd_error netmd_secure_send_track(netmd_dev_handle *dev,
                                     netmd_track_packets *packets,
                                     size_t packet_length,
                                     unsigned char *sessionkey,
-
                                     uint16_t *track, unsigned char *uuid,
                                     unsigned char *content_id);
 

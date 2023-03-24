@@ -148,4 +148,6 @@ netmd_error netmd_get_position(netmd_dev_handle* dev, netmd_time* time);
 netmd_error netmd_get_disc_capacity(netmd_dev_handle* dev,
                                     netmd_disc_capacity* capacity);
 
+/* copy end */
+
 #endif /* LIBNETMD_PLAYERCONTROL_H */

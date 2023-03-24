@@ -1,7 +1,7 @@
 #!/bin/bash
 
-FNAME=libnetmd.h
-HEADERS=("const.h" "error.h" "log.h" "common.h" "libnetmd_intern.h" "netmd_dev.h" "netmd_transfer.h" "patch.h" "CMDiscHeader.h" "secure.h" "trackinformation.h" "utils.h")
+FNAME=include/libnetmd.h
+HEADERS=("const.h" "error.h" "log.h" "common.h" "CMDiscHeader.h" "libnetmd_intern.h" "netmd_dev.h" "netmd_transfer.h" "patch.h" "secure.h" "trackinformation.h" "utils.h" "playercontrol.h")
 
 cat << EOF > ${FNAME}
 /*
@@ -33,19 +33,27 @@ cat << EOF > ${FNAME}
 #include <stdio.h>
 #include <libusb-1.0/libusb.h>
 #include <stdint.h>
+EOF
 
-#ifdef __cpluplus
+openExtC()
+{
+cat << EOF >> ${FNAME}
+#ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 EOF
+}
 
 for h in ${HEADERS[@]} ; do
     echo "Processing header ${h} ..."
     gawk '/\/\* copy start \*\//{flag=1;next}/\/\* copy end \*\//{flag=0}flag' ${h} >> ${FNAME}
+    if [ ${h} = const.h ] ; then
+        openExtC
+    fi
 done
 
 cat << EOF >> ${FNAME}
-#ifdef __cpluplus
+#ifdef __cplusplus
 }
 #endif /* __cplusplus */
 #endif /* LIBNETMD_H */

@@ -35,4 +35,4 @@ ELSEIF(LINUX)
 ENDIF()
 
 add_executable(netmdcli netmdcli.c)
-target_link_libraries(netmdcli snetmd)
+target_link_libraries(netmdcli libnetmdstatic usb-1.0 gcrypt gpg-error ws2-32)

@@ -224,7 +224,6 @@ private:
 
 extern "C" {
 #endif // __cplusplus 
-#include "log.h"
 #include <stdint.h>
 
 /* copy start */
