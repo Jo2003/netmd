@@ -23,9 +23,12 @@ set(LIB_SRC
     utils.c
 )
 
-add_library(netmd SHARED ${LIB_SRC})
-target_compile_options(netmd PRIVATE -fPIC)
+if (NOT BUILD_SHARED_LIBS)
+    set(BUILD_SHARED_LIBS OFF)
+endif()
 
+# STATIC or SHARED is decided by option BUILD_SHARED_LIBS = ON
+add_library(netmd ${LIB_SRC})
 target_link_libraries(netmd usb-1.0 gcrypt gpg-error)
 
 if (WINDOWS)
@@ -35,7 +38,8 @@ endif()
 set_target_properties(netmd PROPERTIES 
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
-    PUBLIC_HEADER include/libnetmd.h)
+    PUBLIC_HEADER include/libnetmd.h
+    POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
 target_include_directories(netmd PRIVATE .)
 
