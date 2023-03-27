@@ -31,21 +31,9 @@ if (UNIX AND NOT APPLE)
 	set(LINUX TRUE)
 endif()
 
-if (LINUX)
-	find_package(PkgConfig REQUIRED)
-	find_library(UDEV NAMES udev libudev Hint /usr/lib/x86_64-linux-gnu)
-	pkg_check_modules(USB REQUIRED libusb-1.0)
-endif()
-
 # STATIC or SHARED is decided by option BUILD_SHARED_LIBS = ON
 add_library(netmd ${LIB_SRC})
 target_link_libraries(netmd usb-1.0 gcrypt gpg-error)
-
-if (LINUX)
-	target_include_directories(netmd PRIVATE ${USB_INCLUDE_DIRS})
-	link_directories(${USB_LIBRARY_DIRS})
-	target_link_libraries(netmd udev)
-endif()
 
 if (APPLE)
     target_include_directories(netmd PRIVATE
